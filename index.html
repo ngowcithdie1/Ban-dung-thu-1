@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ứng dụng quản lý kho cửa hàng</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <section class="auth-shell" id="auth-shell">
+    <div class="auth-card">
+      <div>
+        <p class="eyebrow">Truy cập nội bộ</p>
+        <h1>Đăng nhập để dùng website quản lý kho</h1>
+        <p class="auth-copy" id="auth-state-copy">
+          Lần đầu sử dụng, bạn tạo tài khoản chủ quán trước. Sau đó đăng nhập để tạo thêm tài khoản cho nhân viên.
+        </p>
+      </div>
+
+      <div class="auth-layout">
+        <form id="login-form" class="auth-form" hidden>
+          <div class="panel-header">
+            <div>
+              <p class="panel-label">Đăng nhập</p>
+              <h4>Vào đúng tài khoản để sử dụng website</h4>
+            </div>
+          </div>
+
+          <label>
+            <span>Tên đăng nhập</span>
+            <input id="login-username" type="text" autocomplete="username">
+          </label>
+
+          <label>
+            <span>Mật khẩu</span>
+            <input id="login-password" type="password" autocomplete="current-password">
+          </label>
+
+          <button type="submit" class="primary-btn">Đăng nhập</button>
+        </form>
+
+        <form id="register-form" class="auth-form">
+          <div class="panel-header">
+            <div>
+              <p class="panel-label">Tạo tài khoản</p>
+              <h4>Chủ quán tự tạo tài khoản đầu tiên</h4>
+            </div>
+          </div>
+
+          <label>
+            <span>Họ và tên</span>
+            <input id="register-name" type="text" autocomplete="name">
+          </label>
+
+          <label>
+            <span>Tên đăng nhập</span>
+            <input id="register-username" type="text" autocomplete="username">
+          </label>
+
+          <label>
+            <span>Mật khẩu</span>
+            <input id="register-password" type="password" autocomplete="new-password">
+          </label>
+
+          <button type="submit" class="primary-btn">Tạo tài khoản chủ quán</button>
+        </form>
+      </div>
+
+      <div class="auth-message" id="auth-message"></div>
+    </div>
+  </section>
+
+  <div class="app-shell" id="app-shell" hidden>
+    <aside class="sidebar">
+      <div class="brand-block">
+        <p class="eyebrow">Ứng dụng nội bộ</p>
+        <h1>Kiểm kho cửa hàng</h1>
+        <p class="brand-copy">
+          Website này giúp nhân viên nhập hàng, kiểm kho và giúp chủ quán theo dõi tồn kho hằng ngày trên cùng một hệ thống nội bộ.
+        </p>
+      </div>
+
+      <nav class="nav-list" aria-label="Điều hướng màn hình">
+        <button class="nav-item is-active" data-screen="dashboard">Tổng quan</button>
+        <button class="nav-item" data-screen="catalog">Danh mục hàng</button>
+        <button class="nav-item" data-screen="recipes">Công thức món</button>
+        <button class="nav-item" data-screen="purchase">Nhập hàng</button>
+        <button class="nav-item" data-screen="count">Kiểm kho</button>
+        <button class="nav-item" data-screen="report">Báo cáo</button>
+        <button class="nav-item" data-screen="history">Lịch sử</button>
+      </nav>
+
+      <section class="review-card">
+        <p class="review-label">Nhân viên dùng nhanh</p>
+        <ul>
+          <li>Buổi sáng ưu tiên vào mục Nhập hàng.</li>
+          <li>Cuối ngày ưu tiên vào mục Kiểm kho.</li>
+          <li>Khi cần đối chiếu, xem Lịch sử nhập hàng.</li>
+        </ul>
+      </section>
+    </aside>
+
+    <main class="content">
+      <section class="data-controls panel">
+        <div class="panel-header">
+          <div>
+            <p class="panel-label">Dữ liệu website</p>
+            <h4>Website này có thể lưu dữ liệu ngay trên máy của bạn</h4>
+          </div>
+          <div class="top-actions">
+            <div class="user-chip" id="current-user-label">Chưa đăng nhập</div>
+            <button type="button" id="logout-button" class="secondary-btn">Đăng xuất</button>
+          </div>
+        </div>
+        <div class="data-controls-grid">
+          <div class="data-status" id="storage-status">Đang dùng dữ liệu nội bộ của trình duyệt.</div>
+          <div class="data-buttons">
+            <button type="button" id="export-data" class="secondary-btn">Xuất dữ liệu</button>
+            <label class="secondary-btn file-label" for="import-data">Nhập dữ liệu</label>
+            <input id="import-data" type="file" accept="application/json" hidden>
+            <button type="button" id="reset-data" class="danger-btn">Khôi phục dữ liệu mẫu</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="account-panel panel" id="account-panel">
+        <div class="panel-header">
+          <div>
+            <p class="panel-label">Tài khoản truy cập</p>
+            <h4>Bạn tự tạo tài khoản đăng nhập cho cửa hàng tại đây</h4>
+          </div>
+        </div>
+
+        <div class="account-grid">
+          <form id="account-form" class="form-grid">
+            <label>
+              <span>Họ và tên</span>
+              <input id="account-name" type="text">
+            </label>
+
+            <label>
+              <span>Tên đăng nhập</span>
+              <input id="account-username" type="text">
+            </label>
+
+            <label>
+              <span>Mật khẩu</span>
+              <input id="account-password" type="password">
+            </label>
+
+            <label>
+              <span>Vai trò</span>
+              <select id="account-role">
+                <option value="employee">Nhân viên</option>
+                <option value="owner">Chủ quán</option>
+              </select>
+            </label>
+
+            <div class="form-actions">
+              <button type="submit" class="primary-btn">Tạo tài khoản mới</button>
+            </div>
+          </form>
+
+          <div class="account-list-wrap">
+            <div class="panel-label">Danh sách tài khoản đang có</div>
+            <div id="account-list" class="stack"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen is-visible" id="screen-dashboard" data-screen-panel="dashboard">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Tổng quan</p>
+            <h3>Chủ quán nhìn nhanh tình hình kho trong ngày</h3>
+          </div>
+        </div>
+
+        <div class="stats-grid" id="dashboard-stats"></div>
+
+        <section class="dashboard-inline-panel panel" id="dashboard-error-panel" hidden>
+          <div class="panel-header">
+            <div>
+              <p class="panel-label">Lỗi nhân viên</p>
+              <h4>Xem, chỉnh sửa và theo dõi lỗi ngay trong phần tổng quan</h4>
+            </div>
+            <button type="button" id="hide-dashboard-errors" class="secondary-btn">Thu gọn</button>
+          </div>
+
+          <div class="employee-inline-summary" id="employee-error-summary"></div>
+
+          <div class="employee-inline-grid">
+            <article class="inline-card">
+              <form id="employee-error-form" class="form-grid">
+                <label>
+                  <span>Lỗi cần sửa</span>
+                  <select id="employee-error-select"></select>
+                </label>
+
+                <label>
+                  <span>Ngày xảy ra</span>
+                  <input id="error-date" type="date">
+                </label>
+
+                <label>
+                  <span>Tên nhân viên</span>
+                  <input id="error-employee" type="text">
+                </label>
+
+                <label>
+                  <span>Nhóm lỗi</span>
+                  <select id="error-area">
+                    <option value="Nhập hàng">Nhập hàng</option>
+                    <option value="Kiểm kho">Kiểm kho</option>
+                    <option value="Bán trong ngày">Bán trong ngày</option>
+                    <option value="Danh mục hàng">Danh mục hàng</option>
+                    <option value="Khác">Khác</option>
+                  </select>
+                </label>
+
+                <label>
+                  <span>Loại lỗi</span>
+                  <select id="error-type">
+                    <option value="Nhập sai đơn vị">Nhập sai đơn vị</option>
+                    <option value="Nhập sai số lượng">Nhập sai số lượng</option>
+                    <option value="Quên ghi phiếu">Quên ghi phiếu</option>
+                    <option value="Kiểm kho sai">Kiểm kho sai</option>
+                    <option value="Sai thao tác khác">Sai thao tác khác</option>
+                  </select>
+                </label>
+
+                <label>
+                  <span>Trạng thái xử lý</span>
+                  <select id="error-status">
+                    <option value="Chưa xử lý">Chưa xử lý</option>
+                    <option value="Đã nhắc">Đã nhắc</option>
+                    <option value="Đã sửa xong">Đã sửa xong</option>
+                  </select>
+                </label>
+
+                <label class="full-width">
+                  <span>Mô tả lỗi</span>
+                  <textarea id="error-detail" rows="4"></textarea>
+                </label>
+
+                <label class="full-width">
+                  <span>Ghi chú xử lý</span>
+                  <textarea id="error-note" rows="3"></textarea>
+                </label>
+
+                <div class="form-actions">
+                  <button type="submit" class="primary-btn">Lưu lỗi nhân viên</button>
+                  <button type="button" id="reset-error-form" class="secondary-btn">Tạo bản ghi mới</button>
+                  <button type="button" id="delete-error-button" class="danger-btn">Xóa lỗi này</button>
+                </div>
+              </form>
+            </article>
+
+            <article class="inline-card">
+              <div class="panel-label">Lịch sử lỗi gần đây</div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Ngày</th>
+                      <th>Nhân viên</th>
+                      <th>Nhóm lỗi</th>
+                      <th>Loại lỗi</th>
+                      <th>Trạng thái</th>
+                      <th>Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody id="employee-errors-table"></tbody>
+                </table>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="dashboard-inline-panel panel" id="dashboard-sales-panel" hidden>
+          <div class="panel-header">
+            <div>
+              <p class="panel-label">Bán trong ngày</p>
+              <h4>Nhân viên cập nhật món bán và hệ thống sẽ tự trừ kho theo công thức</h4>
+            </div>
+            <button type="button" id="hide-dashboard-sales" class="secondary-btn">Thu gọn</button>
+          </div>
+
+          <article class="inline-card">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Món bán</th>
+                    <th>Số lượng bán</th>
+                    <th>Đã trừ kho</th>
+                    <th>Đơn giá</th>
+                    <th>Doanh thu</th>
+                    <th>Ghi chú</th>
+                  </tr>
+                </thead>
+                <tbody id="sales-table"></tbody>
+              </table>
+            </div>
+            <div class="sales-actions">
+              <div class="sales-status" id="sales-sync-status">
+                Khi bạn bấm lưu, hệ thống sẽ tự khấu trừ nguyên liệu tồn kho theo công thức món đã khai báo.
+              </div>
+              <button type="button" id="save-sales-updates" class="primary-btn">Lưu bán trong ngày và tự trừ kho</button>
+            </div>
+          </article>
+
+          <div class="panel-grid">
+            <article class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="panel-label">Tổng nguyên liệu đã dùng</p>
+                  <h4>Từ món bán ra, hệ thống quy đổi sang lượng tồn kho bị giảm</h4>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Nguyên liệu</th>
+                      <th>Lượng bị trừ</th>
+                      <th>Tồn hiện tại</th>
+                      <th>Tồn sau khi trừ</th>
+                    </tr>
+                  </thead>
+                  <tbody id="consumption-table"></tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="panel-label">Cách đọc bảng này</p>
+                  <h4>Giúp bạn hiểu hao hụt tồn kho đến từ đâu</h4>
+                </div>
+              </div>
+              <div class="stack">
+                <article class="mini-card">
+                  <h5>1. Nhìn món bán ra</h5>
+                  <p>Bạn biết hôm nay quán bán nhiều món nào nhất.</p>
+                </article>
+                <article class="mini-card">
+                  <h5>2. Xem nguyên liệu bị trừ</h5>
+                  <p>Hệ thống dựa vào công thức món để tính ra lượng rau, xúc xích, cá viên... đã dùng.</p>
+                </article>
+                <article class="mini-card">
+                  <h5>3. So với kiểm kho cuối ngày</h5>
+                  <p>Nếu tồn thực tế lệch nhiều so với mức đã trừ, bạn sẽ biết có hao hụt, hư hỏng hoặc thất thoát.</p>
+                </article>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <div class="panel-grid">
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="panel-label">Việc cần chú ý</p>
+                <h4>Mặt hàng sắp hết hoặc đang lệch kho</h4>
+              </div>
+            </div>
+            <div id="dashboard-alerts" class="stack"></div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="panel-label">Luồng sử dụng trong ngày</p>
+                <h4>Nhân viên sẽ thao tác theo thứ tự này</h4>
+              </div>
+            </div>
+            <ol class="flow-list">
+              <li>Buổi sáng mở màn hình <strong>Nhập hàng</strong> để ghi hàng mới về.</li>
+              <li>Hệ thống tự đổi từ <strong>thùng</strong>, <strong>kg</strong>, <strong>bịch</strong> về đơn vị tồn kho chuẩn.</li>
+              <li>Cuối ngày mở màn hình <strong>Kiểm kho</strong> để nhập số lượng thực tế.</li>
+              <li>Quản lý xem chênh lệch và duyệt điều chỉnh nếu cần.</li>
+              <li>Chủ quán mở <strong>Báo cáo</strong> để xem hàng nào sắp hết và hàng nào đang lệch.</li>
+            </ol>
+          </article>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-catalog" data-screen-panel="catalog">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Màn hình 1</p>
+            <h3>Danh mục hàng hóa</h3>
+          </div>
+        </div>
+
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-label">Danh sách hàng mẫu</p>
+              <h4>Các mặt hàng thường dùng trong cửa hàng</h4>
+            </div>
+          </div>
+
+          <div class="catalog-editor" id="catalog-editor">
+            <div class="catalog-editor-header">
+              <div>
+                <p class="panel-label">Chỉnh sửa mặt hàng</p>
+                <h4>Bạn có thể sửa tên, đơn vị, quy đổi và mức cảnh báo ngay tại đây</h4>
+              </div>
+            </div>
+
+            <form id="catalog-form" class="form-grid">
+              <label>
+                <span>Mặt hàng cần sửa</span>
+                <select id="catalog-item-select"></select>
+              </label>
+
+              <label>
+                <span>Tên mặt hàng</span>
+                <input id="catalog-name" type="text">
+              </label>
+
+              <label>
+                <span>Nhóm hàng</span>
+                <input id="catalog-category" type="text">
+              </label>
+
+              <label>
+                <span>Khối lượng hàng hóa</span>
+                <input id="catalog-weight" type="number" min="0" step="0.1">
+              </label>
+
+              <label>
+                <span>Tồn kho hiện tại</span>
+                <input id="catalog-on-hand" type="number" min="0" step="0.1">
+              </label>
+
+              <label>
+                <span>Tồn kho cảnh báo</span>
+                <input id="catalog-min-level" type="number" min="0" step="0.1">
+              </label>
+
+              <label>
+                <span>Đơn vị nhập</span>
+                <input id="catalog-unit-1-name" type="text">
+              </label>
+
+              <label>
+                <span>Quy đổi ra gam</span>
+                <input id="catalog-unit-1-factor" type="number" min="0.1" step="0.1" placeholder="Ví dụ: 500">
+              </label>
+
+              <label>
+                <span>Đơn vị quy đổi</span>
+                <input id="catalog-unit-1-example" type="text" placeholder="Ví dụ: 1 bịch = 500g">
+              </label>
+
+              <div class="form-actions">
+                <button type="submit" class="primary-btn">Lưu thay đổi mặt hàng</button>
+                <button type="button" id="reset-catalog-form" class="secondary-btn">Hủy thay đổi</button>
+                <button type="button" id="delete-catalog-item" class="danger-btn">Xóa mặt hàng này</button>
+              </div>
+            </form>
+          </div>
+
+          <div id="catalog-grid" class="catalog-grid"></div>
+        </article>
+      </section>
+
+      <section class="screen" id="screen-purchase" data-screen-panel="purchase">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Màn hình 2</p>
+            <h3>Nhập hàng</h3>
+          </div>
+        </div>
+
+        <div class="panel-grid">
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="panel-label">Phiếu nhập hàng</p>
+                <h4>Nhân viên chỉ cần nhập vài thông tin chính</h4>
+              </div>
+            </div>
+
+            <form id="purchase-form" class="form-grid">
+              <label>
+                <span>Mặt hàng</span>
+                <select id="purchase-item" name="purchaseItem"></select>
+              </label>
+
+              <label>
+                <span>Đơn vị nhập</span>
+                <select id="purchase-unit" name="purchaseUnit"></select>
+              </label>
+
+              <label>
+                <span>Số lượng</span>
+                <input id="purchase-quantity" name="purchaseQuantity" type="number" min="0.1" step="0.1" value="1">
+              </label>
+
+              <label>
+                <span>Khối lượng thực nhập</span>
+                <input id="purchase-custom-weight" name="purchaseCustomWeight" type="number" min="0" step="0.1" placeholder="Ví dụ: 420">
+              </label>
+
+              <label>
+                <span>Đơn giá</span>
+                <input id="purchase-price" name="purchasePrice" type="number" min="0" step="1000" value="180000">
+              </label>
+
+              <label>
+                <span>Nhà cung cấp</span>
+                <input id="purchase-supplier" name="purchaseSupplier" type="text" value="Nhà cung cấp quen">
+              </label>
+
+              <button type="submit" class="primary-btn">Thêm vào lịch sử mẫu</button>
+            </form>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="panel-label">Hệ thống tự quy đổi</p>
+                <h4>Bạn xem trước cách hệ thống tính số lượng</h4>
+              </div>
+            </div>
+            <div id="conversion-preview" class="conversion-card"></div>
+          </article>
+        </div>
+
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-label">Lịch sử nhập trong ngày</p>
+              <h4>Các phiếu nhập gần nhất</h4>
+            </div>
+          </div>
+
+          <div class="purchase-history-toolbar">
+            <label>
+              <span>Chọn ngày cần xem</span>
+              <input id="purchase-history-date" type="date">
+            </label>
+            <div class="history-summary" id="purchase-history-summary"></div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Ngày</th>
+                  <th>Thời gian</th>
+                  <th>Mặt hàng</th>
+                  <th>Nhập theo</th>
+                  <th>Quy đổi tồn kho</th>
+                  <th>Đơn giá</th>
+                  <th>Nhà cung cấp</th>
+                </tr>
+              </thead>
+              <tbody id="purchase-log"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section class="screen" id="screen-count" data-screen-panel="count">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Màn hình 3</p>
+            <h3>Kiểm kho cuối ngày</h3>
+          </div>
+        </div>
+
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-label">Bảng kiểm kho</p>
+              <h4>So sánh tồn hệ thống và tồn thực tế</h4>
+            </div>
+            <button id="approve-adjustments" class="secondary-btn">Duyệt điều chỉnh mẫu</button>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Mặt hàng</th>
+                  <th>Tồn hệ thống</th>
+                  <th>Tồn thực tế</th>
+                  <th>Chênh lệch</th>
+                  <th>Trạng thái</th>
+                </tr>
+              </thead>
+              <tbody id="count-table"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section class="screen" id="screen-recipes" data-screen-panel="recipes">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Màn hình 3</p>
+            <h3>Công thức món ăn</h3>
+          </div>
+        </div>
+
+        <div class="panel-grid">
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="panel-label">Khai báo công thức</p>
+                <h4>Bạn điền món ăn này dùng những nguyên liệu nào</h4>
+              </div>
+            </div>
+
+            <form id="recipe-form" class="form-grid">
+              <label>
+                <span>Tên món</span>
+                <input id="recipe-name" name="recipeName" type="text" value="Món mới">
+              </label>
+
+              <label>
+                <span>Số lượng bán mẫu</span>
+                <input id="recipe-sale-quantity" name="recipeSaleQuantity" type="number" min="1" step="1" value="10">
+              </label>
+              <div class="ingredient-builder">
+                <div class="ingredient-builder-header">
+                  <div>
+                    <span>Nguyên liệu của món</span>
+                    <p>Bạn có thể thêm bao nhiêu nguyên liệu cũng được.</p>
+                  </div>
+                  <button type="button" id="add-ingredient-row" class="secondary-btn">Thêm nguyên liệu</button>
+                </div>
+                <div id="recipe-ingredients-list" class="ingredient-list"></div>
+              </div>
+
+              <button type="submit" class="primary-btn">Lưu công thức mẫu</button>
+            </form>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="panel-label">Xem nhanh công thức</p>
+                <h4>Mỗi món bán sẽ khấu trừ kho theo công thức này</h4>
+              </div>
+            </div>
+            <div id="recipe-preview" class="conversion-card"></div>
+          </article>
+        </div>
+
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-label">Danh sách công thức đang có</p>
+              <h4>Bạn có thể kiểm tra món nào đang dùng nguyên liệu nào</h4>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Món ăn</th>
+                  <th>Công thức</th>
+                  <th>Số lượng bán mẫu</th>
+                  <th>Khấu trừ tồn kho</th>
+                  <th>Thao tác</th>
+                </tr>
+              </thead>
+              <tbody id="recipe-table"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section class="screen" id="screen-report" data-screen-panel="report">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Màn hình 5</p>
+            <h3>Báo cáo tồn kho</h3>
+          </div>
+        </div>
+
+        <div class="panel-grid">
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="panel-label">Hàng sắp hết</p>
+                <h4>Nên nhập thêm sớm</h4>
+              </div>
+            </div>
+            <div id="low-stock-list" class="stack"></div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="panel-label">Hàng đang ổn</p>
+                <h4>Còn đủ để tiếp tục bán</h4>
+              </div>
+            </div>
+            <div id="healthy-stock-list" class="stack"></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-history" data-screen-panel="history">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Màn hình 7</p>
+            <h3>Lịch sử thao tác</h3>
+          </div>
+        </div>
+
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-label">Lịch sử trong ngày</p>
+              <h4>Ai vừa nhập hàng, ai vừa kiểm kho, ai vừa duyệt</h4>
+            </div>
+          </div>
+          <div id="history-list" class="timeline"></div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
