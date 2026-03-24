@@ -69,6 +69,11 @@ textarea {
   gap: 22px;
 }
 
+.auth-shell.auth-login-mode .auth-card {
+  width: min(680px, 100%);
+  gap: 18px;
+}
+
 .auth-card h1 {
   margin: 0 0 8px;
   font-size: clamp(1.9rem, 3vw, 2.6rem);
@@ -85,6 +90,12 @@ textarea {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
+}
+
+.auth-shell.auth-login-mode .auth-layout {
+  grid-template-columns: minmax(0, 1fr);
+  width: min(520px, 100%);
+  justify-self: center;
 }
 
 .auth-form {
@@ -116,6 +127,11 @@ textarea {
 .auth-message {
   min-height: 24px;
   color: var(--muted);
+}
+
+.auth-shell.auth-login-mode .auth-message,
+.auth-shell.auth-login-mode .auth-copy {
+  width: min(520px, 100%);
 }
 
 .sidebar {

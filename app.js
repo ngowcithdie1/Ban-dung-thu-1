@@ -685,6 +685,7 @@ function renderAuthState() {
   authShell.hidden = Boolean(currentUser);
   appShell.hidden = !currentUser;
   document.body.classList.toggle("auth-open", !currentUser);
+  authShell.classList.toggle("auth-login-mode", hasUsers && !currentUser);
   window.scrollTo({ top: 0, left: 0, behavior: "auto" });
 
   loginForm.hidden = !hasUsers;
