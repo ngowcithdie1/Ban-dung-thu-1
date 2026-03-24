@@ -70,8 +70,22 @@ textarea {
 }
 
 .auth-shell.auth-login-mode .auth-card {
-  width: min(680px, 100%);
-  gap: 18px;
+  width: min(1120px, 100%);
+  padding: 34px;
+  gap: 26px;
+  grid-template-columns: minmax(0, 1.15fr) minmax(360px, 470px);
+  grid-template-areas:
+    "intro form"
+    "message form";
+  align-items: stretch;
+}
+
+.auth-shell.auth-login-mode .auth-card > :first-child {
+  grid-area: intro;
+  display: grid;
+  align-content: center;
+  gap: 12px;
+  padding: 6px 4px 6px 2px;
 }
 
 .auth-card h1 {
@@ -80,10 +94,23 @@ textarea {
   line-height: 1.12;
 }
 
+.auth-shell.auth-login-mode .auth-card h1 {
+  margin: 0;
+  max-width: 10ch;
+  font-size: clamp(2.6rem, 5vw, 4.2rem);
+  line-height: 1.03;
+}
+
 .auth-copy {
   margin: 0;
   color: var(--muted);
   line-height: 1.7;
+}
+
+.auth-shell.auth-login-mode .auth-copy {
+  max-width: 36rem;
+  font-size: 1.06rem;
+  line-height: 1.85;
 }
 
 .auth-layout {
@@ -93,9 +120,10 @@ textarea {
 }
 
 .auth-shell.auth-login-mode .auth-layout {
+  grid-area: form;
   grid-template-columns: minmax(0, 1fr);
-  width: min(520px, 100%);
-  justify-self: center;
+  width: 100%;
+  align-self: stretch;
 }
 
 .auth-form {
@@ -105,6 +133,15 @@ textarea {
   border: 1px solid var(--line);
   border-radius: 20px;
   background: var(--surface-soft);
+}
+
+.auth-shell.auth-login-mode .auth-form {
+  align-content: center;
+  gap: 18px;
+  padding: 28px 26px;
+  border-radius: 26px;
+  background: linear-gradient(180deg, #fffaf4 0%, #fdf8f2 100%);
+  box-shadow: 0 18px 44px rgba(86, 64, 37, 0.08);
 }
 
 .auth-form label {
@@ -124,14 +161,26 @@ textarea {
   background: var(--surface);
 }
 
+.auth-shell.auth-login-mode .auth-form input {
+  padding: 14px 16px;
+  border-radius: 16px;
+}
+
+.auth-shell.auth-login-mode .auth-form .primary-btn {
+  min-height: 56px;
+  border-radius: 18px;
+  font-size: 1.08rem;
+}
+
 .auth-message {
   min-height: 24px;
   color: var(--muted);
 }
 
-.auth-shell.auth-login-mode .auth-message,
-.auth-shell.auth-login-mode .auth-copy {
-  width: min(520px, 100%);
+.auth-shell.auth-login-mode .auth-message {
+  grid-area: message;
+  min-height: 0;
+  padding-left: 2px;
 }
 
 .sidebar {
@@ -858,6 +907,25 @@ tbody tr:last-child td {
     grid-template-columns: 1fr;
   }
 
+  .auth-shell.auth-login-mode .auth-card {
+    width: min(760px, 100%);
+    padding: 26px;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "intro"
+      "form"
+      "message";
+  }
+
+  .auth-shell.auth-login-mode .auth-card > :first-child {
+    padding: 0;
+  }
+
+  .auth-shell.auth-login-mode .auth-card h1 {
+    max-width: none;
+    font-size: clamp(2.1rem, 5vw, 3.3rem);
+  }
+
   .sidebar {
     border-right: none;
     border-bottom: 1px solid var(--line);
@@ -885,6 +953,14 @@ tbody tr:last-child td {
   .content,
   .sidebar {
     padding: 18px;
+  }
+
+  .auth-shell.auth-login-mode .auth-card {
+    padding: 20px;
+  }
+
+  .auth-shell.auth-login-mode .auth-form {
+    padding: 22px 18px;
   }
 
   .nav-list {
