@@ -487,6 +487,8 @@ const addIngredientRowButton = document.getElementById("add-ingredient-row");
 const recipePreview = document.getElementById("recipe-preview");
 const recipeTable = document.getElementById("recipe-table");
 const countTable = document.getElementById("count-table");
+const saveCountDraftButton = document.getElementById("save-count-draft");
+const countSaveStatus = document.getElementById("count-save-status");
 const salesTable = document.getElementById("sales-table");
 const consumptionTable = document.getElementById("consumption-table");
 const salesSyncStatus = document.getElementById("sales-sync-status");
@@ -525,6 +527,11 @@ const deleteErrorButton = document.getElementById("delete-error-button");
 const employeeErrorsTable = document.getElementById("employee-errors-table");
 const employeeErrorSummary = document.getElementById("employee-error-summary");
 let ingredientRowId = 0;
+let countSnapshotStatus = {
+  message: "",
+  tone: "muted",
+  dirty: false
+};
 
 function mapSupabaseUser(user) {
   if (!user) return null;
@@ -705,6 +712,68 @@ function setSalesSyncStatus(message, tone = "") {
     : tone === "good"
       ? "#cde5d7"
       : "var(--line)";
+}
+
+function countVarianceTotal() {
+  return state.countEntries.filter((entry) => {
+    const item = findItem(entry.itemId);
+    return item && Number(entry.actual) !== Number(item.onHand);
+  }).length;
+}
+
+function setCountSaveStatus(message, tone = "") {
+  if (!countSaveStatus) return;
+
+  countSaveStatus.textContent = message;
+  countSaveStatus.style.color = tone === "danger"
+    ? "var(--danger)"
+    : tone === "good"
+      ? "var(--good)"
+      : tone === "warning"
+        ? "var(--warning)"
+        : "var(--muted)";
+
+  countSaveStatus.style.borderColor = tone === "danger"
+    ? "#e7c0bc"
+    : tone === "good"
+      ? "#cde5d7"
+      : tone === "warning"
+        ? "#ead1b6"
+        : "var(--line)";
+
+  countSaveStatus.style.background = tone === "danger"
+    ? "var(--danger-soft)"
+    : tone === "good"
+      ? "var(--good-soft)"
+      : tone === "warning"
+        ? "var(--warning-soft)"
+        : "var(--surface-soft)";
+}
+
+function refreshCountSaveStatus() {
+  const varianceCount = countVarianceTotal();
+
+  if (countSnapshotStatus.dirty) {
+    setCountSaveStatus(
+      varianceCount > 0
+        ? `Ban da sua ton thuc te va dang co ${varianceCount} mat hang lech kho. Bam "Luu ton thuc te" de ghi lai ban kiem kho nay.`
+        : 'Ban da sua ton thuc te. Bam "Luu ton thuc te" de ghi lai ban kiem kho nay.',
+      varianceCount > 0 ? "warning" : "muted"
+    );
+    return;
+  }
+
+  if (countSnapshotStatus.message) {
+    setCountSaveStatus(countSnapshotStatus.message, countSnapshotStatus.tone);
+    return;
+  }
+
+  setCountSaveStatus(
+    varianceCount > 0
+      ? `Dang co ${varianceCount} mat hang lech kho. Ban co the luu ton thuc te truoc, sau do moi duyet dieu chinh kho.`
+      : "Bang kiem kho dang khop voi ton he thong.",
+    varianceCount > 0 ? "warning" : "good"
+  );
 }
 
 function showDashboardErrors(scrollIntoView = false) {
@@ -1733,11 +1802,19 @@ function renderCountTable() {
       const itemId = event.currentTarget.dataset.countInput;
       const entry = state.countEntries.find((countEntry) => countEntry.itemId === itemId);
       entry.actual = Number(event.currentTarget.value) || 0;
+      countSnapshotStatus = {
+        message: "",
+        tone: "warning",
+        dirty: true
+      };
       updateVarianceRow(itemId);
+      refreshCountSaveStatus();
       renderDashboard();
       renderReport();
     });
   });
+
+  refreshCountSaveStatus();
 }
 
 function updateVarianceRow(itemId) {
@@ -2209,8 +2286,45 @@ function approveAdjustments() {
     });
   }
 
+  countSnapshotStatus = {
+    message: changedCount > 0
+      ? `Da duyet dieu chinh kho luc ${time}. ${changedCount} mat hang da duoc cap nhat theo ton thuc te.`
+      : `Khong co mat hang nao can dieu chinh luc ${time}.`,
+    tone: changedCount > 0 ? "good" : "muted",
+    dirty: false
+  };
+
   saveState();
   renderAll();
+}
+
+function saveCountSnapshot() {
+  const now = new Date();
+  const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  const varianceCount = countVarianceTotal();
+
+  state.historyEvents.push({
+    time,
+    actor: actorLabel("NhÃ¢n viÃªn kiá»ƒm kho"),
+    title: "LÆ°u tá»“n thá»±c táº¿ kiá»ƒm kho",
+    detail: varianceCount > 0
+      ? `Da luu ban kiem kho co ${varianceCount} mat hang dang lech so voi ton he thong.`
+      : "Da luu ban kiem kho va tat ca mat hang dang khop voi ton he thong."
+  });
+
+  countSnapshotStatus = {
+    message: varianceCount > 0
+      ? `Da luu ton thuc te luc ${time}. Dang co ${varianceCount} mat hang lech kho cho quan ly xem va duyet.`
+      : `Da luu ton thuc te luc ${time}. Tat ca mat hang dang khop voi ton he thong.`,
+    tone: varianceCount > 0 ? "warning" : "good",
+    dirty: false
+  };
+
+  saveState();
+  renderDashboard();
+  renderReport();
+  renderHistory();
+  renderCountTable();
 }
 
 function renderAll() {
@@ -2252,6 +2366,7 @@ document.getElementById("purchase-form").addEventListener("submit", addPurchaseE
 purchaseHistoryDateInput.addEventListener("change", renderPurchaseLog);
 document.getElementById("recipe-form").addEventListener("submit", saveRecipe);
 document.getElementById("approve-adjustments").addEventListener("click", approveAdjustments);
+saveCountDraftButton.addEventListener("click", saveCountSnapshot);
 employeeErrorSelect.addEventListener("change", populateEmployeeErrorForm);
 employeeErrorForm.addEventListener("submit", saveEmployeeError);
 resetErrorFormButton.addEventListener("click", resetEmployeeErrorForm);

@@ -405,6 +405,23 @@ textarea {
   flex-wrap: wrap;
 }
 
+.count-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.inline-status {
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface-soft);
+  color: var(--muted);
+  line-height: 1.5;
+}
+
 .file-label {
   display: inline-flex;
   align-items: center;
