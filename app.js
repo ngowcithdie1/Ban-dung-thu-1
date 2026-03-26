@@ -338,16 +338,18 @@ const DEFAULT_EMPLOYEE_ERRORS = [
 ];
 
 const STORAGE_KEY = "inventory-internal-site-v1";
-const DEFAULT_USERS = [
-  {
-    id: "user-seed-nachago-ngoc",
-    fullName: "Tai khoan chu quan",
-    username: "nachago.ngoc",
-    password: "12345678",
-    role: "owner",
-    createdAt: "2026-03-22T00:00:00.000Z"
-  }
-];
+const DEFAULT_USERS = [];
+const SUPABASE_URL = "https://siyhtmvjjpdcciatljxh.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpeWh0bXZqanBkY2NpYXRsanhoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NjUyODYsImV4cCI6MjA5MDA0MTI4Nn0.7TKGWYNQQxIZjnW7dNPGJspLxClnPVk08Ql3-wJdMYo";
+const REMOTE_STATE_TABLE = "app_state";
+const REMOTE_STATE_ROW_ID = "main-store";
+const supabaseClient = window.supabase?.createClient
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;
+let supabaseAuthUser = null;
+let remoteSaveTimer = null;
+let remoteStateReady = false;
+let remoteStateWarningShown = false;
 
 function buildDefaultState() {
   return {
@@ -377,6 +379,18 @@ function syncUsers(users = []) {
   });
 
   return normalizedUsers;
+}
+
+function buildPersistedState() {
+  return {
+    items: structuredClone(state.items),
+    purchaseLog: structuredClone(state.purchaseLog),
+    countEntries: structuredClone(state.countEntries),
+    historyEvents: structuredClone(state.historyEvents),
+    dailySales: structuredClone(state.dailySales),
+    recipeDefinitions: structuredClone(state.recipeDefinitions),
+    employeeErrors: structuredClone(state.employeeErrors)
+  };
 }
 
 function normalizeDailySales(dailySales = []) {
@@ -512,15 +526,123 @@ const employeeErrorsTable = document.getElementById("employee-errors-table");
 const employeeErrorSummary = document.getElementById("employee-error-summary");
 let ingredientRowId = 0;
 
+function mapSupabaseUser(user) {
+  if (!user) return null;
+
+  return {
+    id: user.id,
+    fullName: user.user_metadata?.full_name || user.email || "Tai khoan Supabase",
+    username: user.email || "",
+    password: "",
+    role: user.user_metadata?.role || "owner",
+    email: user.email || "",
+    createdAt: user.created_at || new Date().toISOString()
+  };
+}
+
+function updateStorageStatus(message, tone = "muted") {
+  storageStatus.textContent = message;
+  storageStatus.style.color = tone === "danger"
+    ? "var(--danger)"
+    : tone === "good"
+      ? "var(--good)"
+      : "var(--muted)";
+}
+
+function handleRemoteStateError(error) {
+  remoteStateReady = false;
+  updateStorageStatus(
+    "Chua ket noi duoc bang du lieu Supabase. Website tam dung du lieu tren trinh duyet.",
+    "danger"
+  );
+
+  if (!remoteStateWarningShown && error?.message) {
+    window.alert(
+      "Supabase da ket noi thanh cong, nhung website chua thay bang app_state. " +
+      "Ban hay chay file supabase-setup.sql trong SQL Editor de website doc/ghi du lieu tu database moi."
+    );
+    remoteStateWarningShown = true;
+  }
+}
+
+async function persistStateToRemote() {
+  if (!supabaseClient || !supabaseAuthUser) return;
+
+  const payload = buildPersistedState();
+  const { error } = await supabaseClient
+    .from(REMOTE_STATE_TABLE)
+    .upsert({
+      id: REMOTE_STATE_ROW_ID,
+      data: payload,
+      updated_at: new Date().toISOString()
+    });
+
+  if (error) {
+    handleRemoteStateError(error);
+    return;
+  }
+
+  remoteStateReady = true;
+  updateStorageStatus(
+    `Du lieu da duoc dong bo len Supabase luc ${new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}.`,
+    "good"
+  );
+}
+
+function scheduleRemoteStateSave() {
+  if (!supabaseClient || !supabaseAuthUser) return;
+
+  if (remoteSaveTimer) {
+    clearTimeout(remoteSaveTimer);
+  }
+
+  updateStorageStatus("Dang dong bo du lieu len Supabase...", "muted");
+  remoteSaveTimer = setTimeout(() => {
+    persistStateToRemote().catch(handleRemoteStateError);
+  }, 350);
+}
+
+async function loadRemoteState() {
+  if (!supabaseClient || !supabaseAuthUser) return null;
+
+  const { data, error } = await supabaseClient
+    .from(REMOTE_STATE_TABLE)
+    .select("id, data")
+    .eq("id", REMOTE_STATE_ROW_ID)
+    .maybeSingle();
+
+  if (error) {
+    handleRemoteStateError(error);
+    return null;
+  }
+
+  const remotePayload = data?.data;
+  if (!remotePayload || !Array.isArray(remotePayload.items)) {
+    const fallbackPayload = buildPersistedState();
+    const { error: upsertError } = await supabaseClient
+      .from(REMOTE_STATE_TABLE)
+      .upsert({
+        id: REMOTE_STATE_ROW_ID,
+        data: fallbackPayload,
+        updated_at: new Date().toISOString()
+      });
+
+    if (upsertError) {
+      handleRemoteStateError(upsertError);
+      return null;
+    }
+
+    remoteStateReady = true;
+    return fallbackPayload;
+  }
+
+  remoteStateReady = true;
+  return remotePayload;
+}
+
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({
-    items: state.items,
-    purchaseLog: state.purchaseLog,
-    countEntries: state.countEntries,
-    historyEvents: state.historyEvents,
-    dailySales: state.dailySales,
-    recipeDefinitions: state.recipeDefinitions,
-    employeeErrors: state.employeeErrors,
+    ...buildPersistedState(),
     users: state.users,
     currentUserId: state.currentUserId
   }));
@@ -816,6 +938,175 @@ function createManagedAccount(event) {
   renderHistory();
   accountForm.reset();
   accountRoleInput.value = "employee";
+}
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    ...buildPersistedState(),
+    users: state.users,
+    currentUserId: state.currentUserId
+  }));
+
+  if (supabaseAuthUser) {
+    scheduleRemoteStateSave();
+    return;
+  }
+
+  updateStorageStatus(
+    `Du lieu da duoc luu tren trinh duyet luc ${new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}.`,
+    "muted"
+  );
+}
+
+function getCurrentUser() {
+  return supabaseAuthUser;
+}
+
+function isOwner() {
+  return (getCurrentUser()?.role || "owner") === "owner";
+}
+
+function renderAccountList() {
+  const currentUser = getCurrentUser();
+
+  accountList.innerHTML = currentUser
+    ? `
+      <article class="account-item">
+        <h5>${currentUser.fullName}</h5>
+        <p><strong>Email:</strong> ${currentUser.email || currentUser.username || "Chua co email"}</p>
+        <p><strong>Vai tro:</strong> ${roleLabel(currentUser.role)}</p>
+        <p><strong>Quan ly tai khoan:</strong> Supabase Dashboard > Authentication > Users</p>
+      </article>
+    `
+    : `<article class="account-item"><h5>Chua dang nhap</h5><p>Dang nhap bang tai khoan Supabase de truy cap website.</p></article>`;
+}
+
+function renderAuthState() {
+  const currentUser = getCurrentUser();
+
+  authShell.hidden = Boolean(currentUser);
+  appShell.hidden = !currentUser;
+  document.body.classList.toggle("auth-open", !currentUser);
+  authShell.classList.toggle("auth-login-mode", !currentUser);
+  window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+
+  loginForm.hidden = false;
+  registerForm.hidden = true;
+
+  if (!currentUser) {
+    currentUserLabel.textContent = "Chua dang nhap";
+    accountPanel.hidden = true;
+    authStateCopy.textContent = "Dung email va mat khau da tao trong Supabase Auth de dang nhap vao website.";
+    updateStorageStatus("Hay dang nhap de dong bo du lieu kho len Supabase.", "muted");
+    renderAccountList();
+    return;
+  }
+
+  authStateCopy.textContent = "Website dang duoc dang nhap bang tai khoan Supabase.";
+  currentUserLabel.textContent = `${currentUser.fullName} • ${roleLabel(currentUser.role)}`;
+  accountPanel.hidden = true;
+  renderAccountList();
+}
+
+function createOwnerAccount(event) {
+  event.preventDefault();
+  window.alert("Ban hay tao tai khoan truoc trong Supabase Dashboard > Authentication > Users.");
+}
+
+async function login(event) {
+  event.preventDefault();
+
+  const email = loginUsernameInput.value.trim().toLowerCase();
+  const password = loginPasswordInput.value.trim();
+
+  if (!email || !password) {
+    setAuthMessage("Ban hay nhap day du email va mat khau.", "danger");
+    return;
+  }
+
+  if (!supabaseClient) {
+    setAuthMessage("Website chua nap duoc Supabase client.", "danger");
+    return;
+  }
+
+  setAuthMessage("Dang kiem tra tai khoan Supabase...", "");
+
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email,
+    password
+  });
+
+  if (error || !data?.user) {
+    setAuthMessage(error?.message || "Dang nhap that bai. Ban hay kiem tra lai email va mat khau.", "danger");
+    return;
+  }
+
+  supabaseAuthUser = mapSupabaseUser(data.user);
+  const remoteState = await loadRemoteState();
+
+  if (remoteState) {
+    replaceState({
+      ...remoteState,
+      users: state.users,
+      currentUserId: state.currentUserId
+    });
+  }
+
+  setAuthMessage(`Dang nhap thanh cong voi tai khoan ${supabaseAuthUser.fullName}.`, "good");
+  renderAuthState();
+  renderAll();
+  loginForm.reset();
+}
+
+async function logout() {
+  if (supabaseClient) {
+    await supabaseClient.auth.signOut();
+  }
+
+  supabaseAuthUser = null;
+  state.currentUserId = null;
+  saveState();
+  renderAuthState();
+  changeScreen("dashboard");
+  setAuthMessage("Ban da dang xuat khoi website noi bo.", "good");
+}
+
+function createManagedAccount(event) {
+  event.preventDefault();
+  window.alert("Ban hay tao them tai khoan trong Supabase Dashboard > Authentication > Users de dam bao bao mat.");
+}
+
+async function initializeSupabaseAuth() {
+  if (!supabaseClient) {
+    renderAuthState();
+    renderAll();
+    return;
+  }
+
+  const { data, error } = await supabaseClient.auth.getSession();
+
+  if (error) {
+    setAuthMessage(error.message, "danger");
+    renderAuthState();
+    renderAll();
+    return;
+  }
+
+  supabaseAuthUser = mapSupabaseUser(data.session?.user || null);
+
+  if (supabaseAuthUser) {
+    const remoteState = await loadRemoteState();
+    if (remoteState) {
+      replaceState({
+        ...remoteState,
+        users: state.users,
+        currentUserId: state.currentUserId
+      });
+    }
+  }
+
+  renderAuthState();
+  renderAll();
 }
 
 function fillEmployeeErrorOptions() {
@@ -1989,5 +2280,4 @@ purchaseHistoryDateInput.value = state.purchaseLog[0]?.date || "2026-03-20";
 populateCatalogForm();
 resetEmployeeErrorForm();
 saveState();
-renderAuthState();
-renderAll();
+initializeSupabaseAuth();

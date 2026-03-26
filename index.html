@@ -16,7 +16,7 @@
         <p class="eyebrow">Truy cập nội bộ</p>
         <h1>Đăng nhập để dùng website quản lý kho</h1>
         <p class="auth-copy" id="auth-state-copy">
-          Lần đầu sử dụng, bạn tạo tài khoản chủ quán trước. Sau đó đăng nhập để tạo thêm tài khoản cho nhân viên.
+          Dùng email và mật khẩu đã tạo trong Supabase Auth để đăng nhập vào website.
         </p>
       </div>
 
@@ -30,8 +30,8 @@
           </div>
 
           <label>
-            <span>Tên đăng nhập</span>
-            <input id="login-username" type="text" autocomplete="username">
+            <span>Email đăng nhập</span>
+            <input id="login-username" type="email" autocomplete="username" placeholder="email@cuahang.com">
           </label>
 
           <label>
@@ -42,11 +42,11 @@
           <button type="submit" class="primary-btn">Đăng nhập</button>
         </form>
 
-        <form id="register-form" class="auth-form">
+        <form id="register-form" class="auth-form" hidden>
           <div class="panel-header">
             <div>
-              <p class="panel-label">Tạo tài khoản</p>
-              <h4>Chủ quán tự tạo tài khoản đầu tiên</h4>
+              <p class="panel-label">Tài khoản Supabase</p>
+              <h4>Tạo tài khoản mới trong Supabase Dashboard</h4>
             </div>
           </div>
 
@@ -56,8 +56,8 @@
           </label>
 
           <label>
-            <span>Tên đăng nhập</span>
-            <input id="register-username" type="text" autocomplete="username">
+            <span>Email đăng nhập</span>
+            <input id="register-username" type="email" autocomplete="username">
           </label>
 
           <label>
@@ -65,7 +65,7 @@
             <input id="register-password" type="password" autocomplete="new-password">
           </label>
 
-          <button type="submit" class="primary-btn">Tạo tài khoản chủ quán</button>
+          <button type="submit" class="primary-btn">Tạo tài khoản Supabase</button>
         </form>
       </div>
 
@@ -733,6 +733,7 @@
     </main>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./app.js"></script>
 </body>
 </html>
