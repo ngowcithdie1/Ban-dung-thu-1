@@ -13,77 +13,87 @@
 <body>
   <section class="auth-shell" id="auth-shell">
     <div class="auth-card">
+      <div class="auth-orb auth-orb-left"></div>
+      <div class="auth-orb auth-orb-right"></div>
+
       <div class="auth-intro">
-        <p class="eyebrow">Liquid Intelligence</p>
-        <h1>Đăng nhập để mở hệ thống vận hành Liquid POS</h1>
-        <p class="auth-copy" id="auth-state-copy">
-          Dùng email và mật khẩu đã tạo trong Supabase Auth để truy cập kho, công thức món, bán trong ngày và lịch sử vận hành của cửa hàng.
-        </p>
-        <div class="auth-highlights">
-          <article class="mini-card">
-            <h5>Shared workspace</h5>
-            <p>Một không gian chung để chốt nhập hàng, bán trong ngày, kiểm kho và theo dõi các lệch tồn.</p>
-          </article>
-          <article class="mini-card">
-            <h5>Supabase sync</h5>
-            <p>Dữ liệu đăng nhập và trạng thái vận hành được đồng bộ lên database để nhiều người cùng dùng.</p>
-          </article>
+        <div class="auth-brand">
+          <div class="brand-mark auth-brand-mark">
+            <span class="material-symbols-outlined">fluid</span>
+          </div>
+          <div class="auth-brand-copy">
+            <p class="eyebrow">Liquid Intelligence</p>
+            <h1>Đăng nhập để dùng Liquid POS</h1>
+            <p class="auth-copy" id="auth-state-copy">
+              Dùng email và mật khẩu Supabase để truy cập kho, công thức món, bán trong ngày và đối soát cuối ca trong cùng một workspace.
+            </p>
+          </div>
+        </div>
+
+        <div class="auth-role-pill">
+          <button type="button" class="role-pill is-active">Chủ quán</button>
+          <button type="button" class="role-pill" tabindex="-1">Nhân viên</button>
         </div>
       </div>
 
       <div class="auth-layout">
         <form id="login-form" class="auth-form" hidden>
-          <div class="panel-header">
+          <div class="panel-header auth-panel-header">
             <div>
               <p class="panel-label">Đăng nhập</p>
-              <h4>Vào đúng tài khoản để dùng website</h4>
+              <h4>Vào đúng tài khoản để sử dụng website</h4>
             </div>
           </div>
 
-          <label>
+          <label class="auth-field">
             <span>Email đăng nhập</span>
-            <input id="login-username" type="email" autocomplete="username" placeholder="email@cuahang.com">
+            <div class="input-shell">
+              <span class="material-symbols-outlined">alternate_email</span>
+              <input id="login-username" type="email" autocomplete="username" placeholder="email@cuahang.com">
+            </div>
           </label>
 
-          <label>
+          <label class="auth-field">
             <span>Mật khẩu</span>
-            <input id="login-password" type="password" autocomplete="current-password" placeholder="••••••••">
+            <div class="input-shell">
+              <span class="material-symbols-outlined">lock</span>
+              <input id="login-password" type="password" autocomplete="current-password" placeholder="••••••••">
+            </div>
           </label>
 
-          <button type="submit" class="primary-btn">Đăng nhập</button>
+          <button type="submit" class="primary-btn auth-submit">Đăng nhập ngay</button>
         </form>
 
-        <form id="register-form" class="auth-form" hidden>
-          <div class="panel-header">
+        <form id="register-form" class="auth-form auth-helper-form" hidden>
+          <div class="panel-header auth-panel-header">
             <div>
-              <p class="panel-label">Tài khoản Supabase</p>
-              <h4>Tạo tài khoản mới trong Supabase Dashboard</h4>
+              <p class="panel-label">Supabase Auth</p>
+              <h4>Tạo tài khoản đầu tiên trong Supabase Dashboard</h4>
             </div>
           </div>
 
-          <label>
-            <span>Họ và tên</span>
-            <input id="register-name" type="text" autocomplete="name">
-          </label>
+          <div class="stack auth-helper-stack">
+            <article class="mini-card">
+              <h5>1. Mở Supabase Auth</h5>
+              <p>Tài khoản đăng nhập thật đang được quản lý trong Supabase Dashboard &gt; Authentication &gt; Users.</p>
+            </article>
+            <article class="mini-card">
+              <h5>2. Tạo user bằng email + mật khẩu</h5>
+              <p>Sau khi tạo xong, quay lại đây và đăng nhập trực tiếp bằng tài khoản vừa cấp cho cửa hàng.</p>
+            </article>
+          </div>
 
-          <label>
-            <span>Email đăng nhập</span>
-            <input id="register-username" type="email" autocomplete="username">
-          </label>
+          <input id="register-name" type="hidden" autocomplete="name">
+          <input id="register-username" type="hidden" autocomplete="username">
+          <input id="register-password" type="hidden" autocomplete="new-password">
 
-          <label>
-            <span>Mật khẩu</span>
-            <input id="register-password" type="password" autocomplete="new-password">
-          </label>
-
-          <button type="submit" class="primary-btn">Tạo tài khoản Supabase</button>
+          <button type="submit" class="secondary-btn auth-submit">Mở Supabase Users</button>
         </form>
       </div>
 
       <div class="auth-message" id="auth-message"></div>
     </div>
   </section>
-
   <div class="app-shell" id="app-shell" hidden>
     <aside class="sidebar">
       <div class="brand-block">
@@ -93,61 +103,41 @@
         <div class="brand-copy-block">
           <p class="eyebrow">Liquid Intelligence</p>
           <h1>Liquid POS</h1>
-          <p class="brand-copy">
-            Theo dõi nhập hàng, kiểm kho, công thức và lịch sử vận hành trên cùng một không gian làm việc dark POS.
-          </p>
+          <div class="brand-meta">
+            <span>Premium Management</span>
+            <span>Terminal 01</span>
+          </div>
         </div>
       </div>
 
       <nav class="nav-list" aria-label="Điều hướng màn hình">
         <button class="nav-item is-active" data-screen="dashboard">
           <span class="nav-item-icon material-symbols-outlined">dashboard</span>
-          <span class="nav-item-copy">
-            <strong>Tổng quan</strong>
-            <small>Dashboard vận hành</small>
-          </span>
+          <span class="nav-item-copy"><strong>Tổng quan</strong></span>
         </button>
         <button class="nav-item" data-screen="catalog">
           <span class="nav-item-icon material-symbols-outlined">inventory_2</span>
-          <span class="nav-item-copy">
-            <strong>Danh mục hàng</strong>
-            <small>Inventory master</small>
-          </span>
+          <span class="nav-item-copy"><strong>Danh mục hàng</strong></span>
         </button>
         <button class="nav-item" data-screen="recipes">
           <span class="nav-item-icon material-symbols-outlined">restaurant_menu</span>
-          <span class="nav-item-copy">
-            <strong>Công thức món</strong>
-            <small>Recipe builder</small>
-          </span>
+          <span class="nav-item-copy"><strong>Công thức món</strong></span>
         </button>
         <button class="nav-item" data-screen="purchase">
           <span class="nav-item-icon material-symbols-outlined">local_shipping</span>
-          <span class="nav-item-copy">
-            <strong>Nhập hàng</strong>
-            <small>Goods receipt</small>
-          </span>
+          <span class="nav-item-copy"><strong>Nhập hàng</strong></span>
         </button>
         <button class="nav-item" data-screen="count">
           <span class="nav-item-icon material-symbols-outlined">assignment</span>
-          <span class="nav-item-copy">
-            <strong>Kiểm kho</strong>
-            <small>Stock count</small>
-          </span>
+          <span class="nav-item-copy"><strong>Kiểm kho</strong></span>
         </button>
         <button class="nav-item" data-screen="report">
           <span class="nav-item-icon material-symbols-outlined">monitoring</span>
-          <span class="nav-item-copy">
-            <strong>Báo cáo</strong>
-            <small>Inventory insights</small>
-          </span>
+          <span class="nav-item-copy"><strong>Báo cáo</strong></span>
         </button>
         <button class="nav-item" data-screen="history">
           <span class="nav-item-icon material-symbols-outlined">timeline</span>
-          <span class="nav-item-copy">
-            <strong>Lịch sử</strong>
-            <small>Stock ledger</small>
-          </span>
+          <span class="nav-item-copy"><strong>Lịch sử</strong></span>
         </button>
       </nav>
     </aside>
@@ -155,18 +145,27 @@
     <main class="content">
       <header class="app-toolbar panel">
         <div class="toolbar-copy">
-          <p class="panel-label">Liquid POS workspace</p>
-          <h2>Không gian quản trị kho, vận hành và đối soát cuối ngày</h2>
-          <p class="hero-copy">
-            Toàn bộ danh mục nguyên liệu, công thức món, bán trong ngày, kiểm kho và lịch sử thao tác đang được gom lại trong một giao diện quản trị thống nhất.
-          </p>
+          <p class="panel-label">Liquid Intelligence</p>
+          <h2>Workspace</h2>
         </div>
 
         <div class="toolbar-actions">
           <label class="toolbar-search" aria-label="Tìm nhanh">
             <span class="material-symbols-outlined">search</span>
-            <input type="search" placeholder="Tìm màn hình, nguyên liệu, phiếu nhập...">
+            <input type="search" placeholder="Tìm nguyên liệu, công thức, phiếu nhập...">
           </label>
+
+          <div class="toolbar-icons">
+            <button type="button" class="icon-btn" aria-label="Thông báo">
+              <span class="material-symbols-outlined">notifications</span>
+            </button>
+            <button type="button" class="icon-btn" aria-label="Giao diện">
+              <span class="material-symbols-outlined">contrast</span>
+            </button>
+            <button type="button" class="icon-btn" aria-label="Thiết lập">
+              <span class="material-symbols-outlined">settings</span>
+            </button>
+          </div>
 
           <div class="top-actions">
             <div class="user-chip" id="current-user-label">Chưa đăng nhập</div>
@@ -179,17 +178,78 @@
         <div class="section-heading">
           <div>
             <p class="eyebrow">Dashboard</p>
-            <h3>Chủ quán nhìn nhanh tình hình kho trong ngày</h3>
+            <h3>Control tower cho toàn bộ vận hành kho</h3>
           </div>
         </div>
 
         <div class="stats-grid" id="dashboard-stats"></div>
 
+        <div class="dashboard-bento">
+          <article class="panel analytics-panel">
+            <div class="panel-header">
+              <div>
+                <p class="panel-label">Revenue pulse</p>
+                <h4>Nhịp bán hàng và tồn kho trong ngày</h4>
+              </div>
+              <div class="segment-switch">
+                <button type="button" class="segment-chip is-active">Ngày</button>
+                <button type="button" class="segment-chip">Tuần</button>
+                <button type="button" class="segment-chip">Tháng</button>
+              </div>
+            </div>
+
+            <div class="analytics-chart">
+              <svg viewBox="0 0 880 320" preserveAspectRatio="none" aria-hidden="true">
+                <defs>
+                  <linearGradient id="chart-fill" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stop-color="rgba(133,173,255,0.36)"></stop>
+                    <stop offset="100%" stop-color="rgba(133,173,255,0.02)"></stop>
+                  </linearGradient>
+                </defs>
+                <path class="chart-grid-line" d="M0 48H880"></path>
+                <path class="chart-grid-line" d="M0 120H880"></path>
+                <path class="chart-grid-line" d="M0 192H880"></path>
+                <path class="chart-grid-line" d="M0 264H880"></path>
+                <path class="chart-fill" d="M0 252 C88 244 132 198 176 188 C220 178 264 134 308 140 C352 146 396 182 440 166 C484 150 528 104 572 116 C616 128 660 80 704 92 C748 104 792 56 836 64 L880 44 L880 320 L0 320 Z"></path>
+                <path class="chart-line" d="M0 252 C88 244 132 198 176 188 C220 178 264 134 308 140 C352 146 396 182 440 166 C484 150 528 104 572 116 C616 128 660 80 704 92 C748 104 792 56 836 64 L880 44"></path>
+                <circle cx="176" cy="188" r="7"></circle>
+                <circle cx="440" cy="166" r="7"></circle>
+                <circle cx="704" cy="92" r="7"></circle>
+                <circle cx="836" cy="64" r="7"></circle>
+              </svg>
+            </div>
+
+            <div id="dashboard-performance" class="analytics-metrics"></div>
+          </article>
+
+          <div class="dashboard-side-stack">
+            <article class="panel side-list-panel">
+              <div class="panel-header">
+                <div>
+                  <p class="panel-label">Top sellers</p>
+                  <h4>Món bán mạnh hôm nay</h4>
+                </div>
+              </div>
+              <div id="dashboard-top-list" class="side-list"></div>
+            </article>
+
+            <article class="panel side-list-panel">
+              <div class="panel-header">
+                <div>
+                  <p class="panel-label">Action feed</p>
+                  <h4>Mặt hàng cần xử lý ngay</h4>
+                </div>
+              </div>
+              <div id="dashboard-alerts" class="side-list"></div>
+            </article>
+          </div>
+        </div>
+
         <section class="dashboard-inline-panel panel" id="dashboard-error-panel" hidden>
           <div class="panel-header">
             <div>
               <p class="panel-label">Lỗi nhân viên</p>
-              <h4>Xem, chỉnh sửa và theo dõi lỗi ngay trong phần tổng quan</h4>
+              <h4>Xem, chỉnh sửa và theo dõi lỗi ngay trong dashboard</h4>
             </div>
             <button type="button" id="hide-dashboard-errors" class="secondary-btn">Thu gọn</button>
           </div>
@@ -364,36 +424,7 @@
             </article>
           </div>
         </section>
-
-        <div class="panel-grid">
-          <article class="panel">
-            <div class="panel-header">
-              <div>
-                <p class="panel-label">Live alerts</p>
-                <h4>Mặt hàng sắp hết hoặc đang lệch kho</h4>
-              </div>
-            </div>
-            <div id="dashboard-alerts" class="stack"></div>
-          </article>
-
-          <article class="panel">
-            <div class="panel-header">
-              <div>
-                <p class="panel-label">Luồng sử dụng trong ngày</p>
-                <h4>Nhân viên sẽ thao tác theo thứ tự này</h4>
-              </div>
-            </div>
-            <ol class="flow-list">
-              <li>Buổi sáng mở màn hình <strong>Nhập hàng</strong> để ghi hàng mới về.</li>
-              <li>Hệ thống tự đổi từ <strong>thùng</strong>, <strong>kg</strong>, <strong>bịch</strong> về đơn vị tồn kho chuẩn.</li>
-              <li>Cuối ngày cập nhật <strong>Bán trong ngày</strong> để hệ thống trừ kho theo công thức.</li>
-              <li>Sau khi chốt bán, mở màn hình <strong>Kiểm kho</strong> để nhập số lượng thực tế.</li>
-              <li>Chủ quán xem <strong>Báo cáo</strong> và <strong>Lịch sử</strong> để truy lại các lệch tồn.</li>
-            </ol>
-          </article>
-        </div>
       </section>
-
       <section class="screen" id="screen-catalog" data-screen-panel="catalog">
         <div class="section-heading">
           <div>
@@ -419,50 +450,15 @@
             </div>
 
             <form id="catalog-form" class="form-grid">
-              <label>
-                <span>Mặt hàng cần sửa</span>
-                <select id="catalog-item-select"></select>
-              </label>
-
-              <label>
-                <span>Tên mặt hàng</span>
-                <input id="catalog-name" type="text">
-              </label>
-
-              <label>
-                <span>Nhóm hàng</span>
-                <input id="catalog-category" type="text">
-              </label>
-
-              <label>
-                <span>Khối lượng hàng hóa</span>
-                <input id="catalog-weight" type="number" min="0" step="0.1">
-              </label>
-
-              <label>
-                <span>Tồn kho hiện tại</span>
-                <input id="catalog-on-hand" type="number" min="0" step="0.1">
-              </label>
-
-              <label>
-                <span>Tồn kho cảnh báo</span>
-                <input id="catalog-min-level" type="number" min="0" step="0.1">
-              </label>
-
-              <label>
-                <span>Đơn vị nhập</span>
-                <input id="catalog-unit-1-name" type="text">
-              </label>
-
-              <label>
-                <span>Quy đổi ra gam</span>
-                <input id="catalog-unit-1-factor" type="number" min="0.1" step="0.1" placeholder="Ví dụ: 500">
-              </label>
-
-              <label>
-                <span>Đơn vị quy đổi</span>
-                <input id="catalog-unit-1-example" type="text" placeholder="Ví dụ: 1 bịch = 500g">
-              </label>
+              <label><span>Mặt hàng cần sửa</span><select id="catalog-item-select"></select></label>
+              <label><span>Tên mặt hàng</span><input id="catalog-name" type="text"></label>
+              <label><span>Nhóm hàng</span><input id="catalog-category" type="text"></label>
+              <label><span>Khối lượng hàng hóa</span><input id="catalog-weight" type="number" min="0" step="0.1"></label>
+              <label><span>Tồn kho hiện tại</span><input id="catalog-on-hand" type="number" min="0" step="0.1"></label>
+              <label><span>Tồn kho cảnh báo</span><input id="catalog-min-level" type="number" min="0" step="0.1"></label>
+              <label><span>Đơn vị nhập</span><input id="catalog-unit-1-name" type="text"></label>
+              <label><span>Quy đổi ra gam</span><input id="catalog-unit-1-factor" type="number" min="0.1" step="0.1" placeholder="Ví dụ: 500"></label>
+              <label><span>Đơn vị quy đổi</span><input id="catalog-unit-1-example" type="text" placeholder="Ví dụ: 1 bịch = 500g"></label>
 
               <div class="form-actions">
                 <button type="submit" class="primary-btn">Lưu thay đổi mặt hàng</button>
@@ -494,36 +490,12 @@
             </div>
 
             <form id="purchase-form" class="form-grid">
-              <label>
-                <span>Mặt hàng</span>
-                <select id="purchase-item" name="purchaseItem"></select>
-              </label>
-
-              <label>
-                <span>Đơn vị nhập</span>
-                <select id="purchase-unit" name="purchaseUnit"></select>
-              </label>
-
-              <label>
-                <span>Số lượng</span>
-                <input id="purchase-quantity" name="purchaseQuantity" type="number" min="0.1" step="0.1" value="1">
-              </label>
-
-              <label>
-                <span>Khối lượng thực nhập</span>
-                <input id="purchase-custom-weight" name="purchaseCustomWeight" type="number" min="0" step="0.1" placeholder="Ví dụ: 420">
-              </label>
-
-              <label>
-                <span>Đơn giá</span>
-                <input id="purchase-price" name="purchasePrice" type="number" min="0" step="1000" value="180000">
-              </label>
-
-              <label>
-                <span>Nhà cung cấp</span>
-                <input id="purchase-supplier" name="purchaseSupplier" type="text" value="Nhà cung cấp quen">
-              </label>
-
+              <label><span>Mặt hàng</span><select id="purchase-item" name="purchaseItem"></select></label>
+              <label><span>Đơn vị nhập</span><select id="purchase-unit" name="purchaseUnit"></select></label>
+              <label><span>Số lượng</span><input id="purchase-quantity" name="purchaseQuantity" type="number" min="0.1" step="0.1" value="1"></label>
+              <label><span>Khối lượng thực nhập</span><input id="purchase-custom-weight" name="purchaseCustomWeight" type="number" min="0" step="0.1" placeholder="Ví dụ: 420"></label>
+              <label><span>Đơn giá</span><input id="purchase-price" name="purchasePrice" type="number" min="0" step="1000" value="180000"></label>
+              <label><span>Nhà cung cấp</span><input id="purchase-supplier" name="purchaseSupplier" type="text" value="Nhà cung cấp quen"></label>
               <button type="submit" class="primary-btn">Thêm vào lịch sử mẫu</button>
             </form>
           </article>
@@ -631,15 +603,9 @@
             </div>
 
             <form id="recipe-form" class="form-grid">
-              <label>
-                <span>Tên món</span>
-                <input id="recipe-name" name="recipeName" type="text" value="Món mới">
-              </label>
+              <label><span>Tên món</span><input id="recipe-name" name="recipeName" type="text" value="Món mới"></label>
+              <label><span>Số lượng bán mẫu</span><input id="recipe-sale-quantity" name="recipeSaleQuantity" type="number" min="1" step="1" value="10"></label>
 
-              <label>
-                <span>Số lượng bán mẫu</span>
-                <input id="recipe-sale-quantity" name="recipeSaleQuantity" type="number" min="1" step="1" value="10">
-              </label>
               <div class="ingredient-builder">
                 <div class="ingredient-builder-header">
                   <div>
@@ -762,39 +728,35 @@
         <div class="panel-header">
           <div>
             <p class="panel-label">Quản lý tài khoản</p>
-            <h4>Quản lý tài khoản đăng nhập của cửa hàng</h4>
+            <h4>Quản lý người dùng qua Supabase Auth</h4>
           </div>
         </div>
 
         <div class="account-grid">
           <form id="account-form" class="account-helper-card">
-            <div>
-              <p class="panel-label">Supabase Auth</p>
-              <h4>Tạo và quản lý user trực tiếp trong Supabase Dashboard</h4>
+            <div class="stack">
+              <article class="mini-card">
+                <h5>Tạo tài khoản mới</h5>
+                <p>Tài khoản đăng nhập thật đang được quản lý trong Supabase Dashboard &gt; Authentication &gt; Users.</p>
+              </article>
+              <article class="mini-card">
+                <h5>Quy trình đề xuất</h5>
+                <p>Chủ quán tạo user mới trong Supabase, sau đó nhân viên đăng nhập trực tiếp bằng email và mật khẩu được cấp.</p>
+              </article>
             </div>
-            <p class="review-note">
-              Website hiện đăng nhập bằng Supabase Auth, vì vậy tài khoản dùng thật phải được tạo trong khu
-              <strong>Authentication → Users</strong> của project Supabase thay vì lưu cục bộ trong trình duyệt.
-            </p>
-            <ul class="helper-list">
-              <li>Mở danh sách user của project Supabase hiện tại.</li>
-              <li>Tạo email + mật khẩu cho nhân viên hoặc chủ quán.</li>
-              <li>Nếu cần, gán thêm metadata vai trò trong Supabase để website nhận đúng quyền.</li>
-            </ul>
             <div class="form-actions">
-              <button type="submit" class="primary-btn">Mở Supabase Users</button>
+              <button type="submit" class="primary-btn">Mở khu quản lý user</button>
             </div>
           </form>
 
           <div class="account-list-wrap">
-            <div class="panel-label">Danh sách tài khoản đang có</div>
+            <div class="panel-label">Tài khoản hiện tại</div>
             <div id="account-list" class="stack"></div>
           </div>
         </div>
       </section>
     </main>
   </div>
-
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./app.js"></script>
 </body>
