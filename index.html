@@ -3,32 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Liquid POS • Quản lý kho cửa hàng</title>
+  <title>Ứng dụng quản lý kho cửa hàng</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400,0..1,0" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
   <section class="auth-shell" id="auth-shell">
     <div class="auth-card">
-      <div class="auth-intro">
-        <p class="eyebrow">Liquid Intelligence</p>
-        <h1>Đăng nhập để mở hệ thống vận hành Liquid POS</h1>
+      <div>
+        <p class="eyebrow">Truy cập nội bộ</p>
+        <h1>Đăng nhập để dùng website quản lý kho</h1>
         <p class="auth-copy" id="auth-state-copy">
-          Dùng email và mật khẩu đã tạo trong Supabase Auth để truy cập kho, công thức món, bán trong ngày và lịch sử vận hành của cửa hàng.
+          Dùng email và mật khẩu đã tạo trong Supabase Auth để đăng nhập vào website.
         </p>
-        <div class="auth-highlights">
-          <article class="mini-card">
-            <h5>Shared workspace</h5>
-            <p>Một không gian chung để chốt nhập hàng, bán trong ngày, kiểm kho và theo dõi các lệch tồn.</p>
-          </article>
-          <article class="mini-card">
-            <h5>Supabase sync</h5>
-            <p>Dữ liệu đăng nhập và trạng thái vận hành được đồng bộ lên database để nhiều người cùng dùng.</p>
-          </article>
-        </div>
       </div>
 
       <div class="auth-layout">
@@ -36,7 +25,7 @@
           <div class="panel-header">
             <div>
               <p class="panel-label">Đăng nhập</p>
-              <h4>Vào đúng tài khoản để dùng website</h4>
+              <h4>Vào đúng tài khoản để sử dụng website</h4>
             </div>
           </div>
 
@@ -47,7 +36,7 @@
 
           <label>
             <span>Mật khẩu</span>
-            <input id="login-password" type="password" autocomplete="current-password" placeholder="••••••••">
+            <input id="login-password" type="password" autocomplete="current-password">
           </label>
 
           <button type="submit" class="primary-btn">Đăng nhập</button>
@@ -57,7 +46,7 @@
           <div class="panel-header">
             <div>
               <p class="panel-label">Tài khoản Supabase</p>
-              <h4>Tạo tài khoản mới trong Supabase Dashboard</h4>
+              <h4>Tạo tài khoản mới trong Supabase Dashboard</h4>
             </div>
           </div>
 
@@ -87,108 +76,105 @@
   <div class="app-shell" id="app-shell" hidden>
     <aside class="sidebar">
       <div class="brand-block">
-        <div class="brand-mark">
-          <span class="material-symbols-outlined">fluid</span>
-        </div>
-        <div class="brand-copy-block">
-          <p class="eyebrow">Liquid Intelligence</p>
-          <h1>Liquid POS</h1>
-          <p class="brand-copy">
-            Theo dõi nhập hàng, kiểm kho, công thức và lịch sử vận hành trên cùng một không gian làm việc dark POS.
-          </p>
-        </div>
+        <p class="eyebrow">Ứng dụng nội bộ</p>
+        <h1>Kiểm kho cửa hàng</h1>
+        <p class="brand-copy">
+          Website này giúp nhân viên nhập hàng, kiểm kho và giúp chủ quán theo dõi tồn kho hằng ngày trên cùng một hệ thống nội bộ.
+        </p>
       </div>
 
       <nav class="nav-list" aria-label="Điều hướng màn hình">
-        <button class="nav-item is-active" data-screen="dashboard">
-          <span class="nav-item-icon material-symbols-outlined">dashboard</span>
-          <span class="nav-item-copy">
-            <strong>Tổng quan</strong>
-            <small>Dashboard vận hành</small>
-          </span>
-        </button>
-        <button class="nav-item" data-screen="catalog">
-          <span class="nav-item-icon material-symbols-outlined">inventory_2</span>
-          <span class="nav-item-copy">
-            <strong>Danh mục hàng</strong>
-            <small>Inventory master</small>
-          </span>
-        </button>
-        <button class="nav-item" data-screen="recipes">
-          <span class="nav-item-icon material-symbols-outlined">restaurant_menu</span>
-          <span class="nav-item-copy">
-            <strong>Công thức món</strong>
-            <small>Recipe builder</small>
-          </span>
-        </button>
-        <button class="nav-item" data-screen="purchase">
-          <span class="nav-item-icon material-symbols-outlined">local_shipping</span>
-          <span class="nav-item-copy">
-            <strong>Nhập hàng</strong>
-            <small>Goods receipt</small>
-          </span>
-        </button>
-        <button class="nav-item" data-screen="count">
-          <span class="nav-item-icon material-symbols-outlined">assignment</span>
-          <span class="nav-item-copy">
-            <strong>Kiểm kho</strong>
-            <small>Stock count</small>
-          </span>
-        </button>
-        <button class="nav-item" data-screen="report">
-          <span class="nav-item-icon material-symbols-outlined">monitoring</span>
-          <span class="nav-item-copy">
-            <strong>Báo cáo</strong>
-            <small>Inventory insights</small>
-          </span>
-        </button>
-        <button class="nav-item" data-screen="history">
-          <span class="nav-item-icon material-symbols-outlined">timeline</span>
-          <span class="nav-item-copy">
-            <strong>Lịch sử</strong>
-            <small>Stock ledger</small>
-          </span>
-        </button>
+        <button class="nav-item is-active" data-screen="dashboard">Tổng quan</button>
+        <button class="nav-item" data-screen="catalog">Danh mục hàng</button>
+        <button class="nav-item" data-screen="recipes">Công thức món</button>
+        <button class="nav-item" data-screen="purchase">Nhập hàng</button>
+        <button class="nav-item" data-screen="count">Kiểm kho</button>
+        <button class="nav-item" data-screen="report">Báo cáo</button>
+        <button class="nav-item" data-screen="history">Lịch sử</button>
       </nav>
 
       <section class="review-card">
-        <p class="review-label">Quick queue</p>
-        <div class="review-pills">
-          <span>Goods receipt</span>
-          <span>Stock count</span>
-          <span>Stock ledger</span>
-        </div>
-        <p class="review-note">Dùng thanh điều hướng để chuyển nhanh giữa các điểm chạm quan trọng trong ca làm việc.</p>
+        <p class="review-label">Nhân viên dùng nhanh</p>
+        <ul>
+          <li>Buổi sáng ưu tiên vào mục Nhập hàng.</li>
+          <li>Cuối ngày ưu tiên vào mục Kiểm kho.</li>
+          <li>Khi cần đối chiếu, xem Lịch sử nhập hàng.</li>
+        </ul>
       </section>
     </aside>
 
     <main class="content">
-      <header class="app-toolbar panel">
-        <div class="toolbar-copy">
-          <p class="panel-label">Liquid POS workspace</p>
-          <h2>Không gian quản trị kho, vận hành và đối soát cuối ngày</h2>
-          <p class="hero-copy">
-            Toàn bộ danh mục nguyên liệu, công thức món, bán trong ngày, kiểm kho và lịch sử thao tác đang được gom lại trong một giao diện quản trị thống nhất.
-          </p>
-        </div>
-
-        <div class="toolbar-actions">
-          <label class="toolbar-search" aria-label="Tìm nhanh">
-            <span class="material-symbols-outlined">search</span>
-            <input type="search" placeholder="Tìm màn hình, nguyên liệu, phiếu nhập...">
-          </label>
-
+      <section class="data-controls panel">
+        <div class="panel-header">
+          <div>
+            <p class="panel-label">Dữ liệu website</p>
+            <h4>Website này có thể lưu dữ liệu ngay trên máy của bạn</h4>
+          </div>
           <div class="top-actions">
             <div class="user-chip" id="current-user-label">Chưa đăng nhập</div>
             <button type="button" id="logout-button" class="secondary-btn">Đăng xuất</button>
           </div>
         </div>
-      </header>
+        <div class="data-controls-grid">
+          <div class="data-status" id="storage-status">Đang dùng dữ liệu nội bộ của trình duyệt.</div>
+          <div class="data-buttons">
+            <button type="button" id="export-data" class="secondary-btn">Xuất dữ liệu</button>
+            <label class="secondary-btn file-label" for="import-data">Nhập dữ liệu</label>
+            <input id="import-data" type="file" accept="application/json" hidden>
+            <button type="button" id="reset-data" class="danger-btn">Khôi phục dữ liệu mẫu</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="account-panel panel" id="account-panel">
+        <div class="panel-header">
+          <div>
+            <p class="panel-label">Tài khoản truy cập</p>
+            <h4>Bạn tự tạo tài khoản đăng nhập cho cửa hàng tại đây</h4>
+          </div>
+        </div>
+
+        <div class="account-grid">
+          <form id="account-form" class="form-grid">
+            <label>
+              <span>Họ và tên</span>
+              <input id="account-name" type="text">
+            </label>
+
+            <label>
+              <span>Tên đăng nhập</span>
+              <input id="account-username" type="text">
+            </label>
+
+            <label>
+              <span>Mật khẩu</span>
+              <input id="account-password" type="password">
+            </label>
+
+            <label>
+              <span>Vai trò</span>
+              <select id="account-role">
+                <option value="employee">Nhân viên</option>
+                <option value="owner">Chủ quán</option>
+              </select>
+            </label>
+
+            <div class="form-actions">
+              <button type="submit" class="primary-btn">Tạo tài khoản mới</button>
+            </div>
+          </form>
+
+          <div class="account-list-wrap">
+            <div class="panel-label">Danh sách tài khoản đang có</div>
+            <div id="account-list" class="stack"></div>
+          </div>
+        </div>
+      </section>
 
       <section class="screen is-visible" id="screen-dashboard" data-screen-panel="dashboard">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">Dashboard</p>
+            <p class="eyebrow">Tổng quan</p>
             <h3>Chủ quán nhìn nhanh tình hình kho trong ngày</h3>
           </div>
         </div>
@@ -297,7 +283,7 @@
         <section class="dashboard-inline-panel panel" id="dashboard-sales-panel" hidden>
           <div class="panel-header">
             <div>
-              <p class="panel-label">POS sync</p>
+              <p class="panel-label">Bán trong ngày</p>
               <h4>Nhân viên cập nhật món bán và hệ thống sẽ tự trừ kho theo công thức</h4>
             </div>
             <button type="button" id="hide-dashboard-sales" class="secondary-btn">Thu gọn</button>
@@ -379,7 +365,7 @@
           <article class="panel">
             <div class="panel-header">
               <div>
-                <p class="panel-label">Live alerts</p>
+                <p class="panel-label">Việc cần chú ý</p>
                 <h4>Mặt hàng sắp hết hoặc đang lệch kho</h4>
               </div>
             </div>
@@ -396,9 +382,9 @@
             <ol class="flow-list">
               <li>Buổi sáng mở màn hình <strong>Nhập hàng</strong> để ghi hàng mới về.</li>
               <li>Hệ thống tự đổi từ <strong>thùng</strong>, <strong>kg</strong>, <strong>bịch</strong> về đơn vị tồn kho chuẩn.</li>
-              <li>Cuối ngày cập nhật <strong>Bán trong ngày</strong> để hệ thống trừ kho theo công thức.</li>
-              <li>Sau khi chốt bán, mở màn hình <strong>Kiểm kho</strong> để nhập số lượng thực tế.</li>
-              <li>Chủ quán xem <strong>Báo cáo</strong> và <strong>Lịch sử</strong> để truy lại các lệch tồn.</li>
+              <li>Cuối ngày mở màn hình <strong>Kiểm kho</strong> để nhập số lượng thực tế.</li>
+              <li>Quản lý xem chênh lệch và duyệt điều chỉnh nếu cần.</li>
+              <li>Chủ quán mở <strong>Báo cáo</strong> để xem hàng nào sắp hết và hàng nào đang lệch.</li>
             </ol>
           </article>
         </div>
@@ -407,15 +393,15 @@
       <section class="screen" id="screen-catalog" data-screen-panel="catalog">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">Inventory</p>
-            <h3>Danh mục hàng hóa và cấu hình quy đổi</h3>
+            <p class="eyebrow">Màn hình 1</p>
+            <h3>Danh mục hàng hóa</h3>
           </div>
         </div>
 
         <article class="panel">
           <div class="panel-header">
             <div>
-              <p class="panel-label">Inventory master</p>
+              <p class="panel-label">Danh sách hàng mẫu</p>
               <h4>Các mặt hàng thường dùng trong cửa hàng</h4>
             </div>
           </div>
@@ -489,8 +475,8 @@
       <section class="screen" id="screen-purchase" data-screen-panel="purchase">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">Goods receipt</p>
-            <h3>Tạo phiếu nhập hàng</h3>
+            <p class="eyebrow">Màn hình 2</p>
+            <h3>Nhập hàng</h3>
           </div>
         </div>
 
@@ -541,7 +527,7 @@
           <article class="panel">
             <div class="panel-header">
               <div>
-                <p class="panel-label">Smart conversion</p>
+                <p class="panel-label">Hệ thống tự quy đổi</p>
                 <h4>Bạn xem trước cách hệ thống tính số lượng</h4>
               </div>
             </div>
@@ -587,7 +573,7 @@
       <section class="screen" id="screen-count" data-screen-panel="count">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">Stock count</p>
+            <p class="eyebrow">Màn hình 3</p>
             <h3>Kiểm kho cuối ngày</h3>
           </div>
         </div>
@@ -626,8 +612,8 @@
       <section class="screen" id="screen-recipes" data-screen-panel="recipes">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">Recipe builder</p>
-            <h3>Công thức món ăn và định mức nguyên liệu</h3>
+            <p class="eyebrow">Màn hình 3</p>
+            <h3>Công thức món ăn</h3>
           </div>
         </div>
 
@@ -668,7 +654,7 @@
           <article class="panel">
             <div class="panel-header">
               <div>
-                <p class="panel-label">Recipe preview</p>
+                <p class="panel-label">Xem nhanh công thức</p>
                 <h4>Mỗi món bán sẽ khấu trừ kho theo công thức này</h4>
               </div>
             </div>
@@ -703,7 +689,7 @@
       <section class="screen" id="screen-report" data-screen-panel="report">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">Inventory insights</p>
+            <p class="eyebrow">Màn hình 5</p>
             <h3>Báo cáo tồn kho</h3>
           </div>
         </div>
@@ -734,7 +720,7 @@
       <section class="screen" id="screen-history" data-screen-panel="history">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">Stock ledger</p>
+            <p class="eyebrow">Màn hình 7</p>
             <h3>Lịch sử thao tác</h3>
           </div>
         </div>
@@ -748,59 +734,6 @@
           </div>
           <div id="history-list" class="timeline"></div>
         </article>
-      </section>
-
-      <section class="data-controls panel">
-        <div class="panel-header">
-          <div>
-            <p class="panel-label">Sync & snapshot</p>
-            <h4>Đồng bộ dữ liệu vận hành lên Supabase và xuất snapshot dự phòng khi cần</h4>
-          </div>
-        </div>
-        <div class="data-controls-grid">
-          <div class="data-status" id="storage-status">Đang dùng dữ liệu nội bộ của trình duyệt.</div>
-          <div class="data-buttons">
-            <button type="button" id="export-data" class="secondary-btn">Xuất dữ liệu</button>
-            <label class="secondary-btn file-label" for="import-data">Nhập dữ liệu</label>
-            <input id="import-data" type="file" accept="application/json" hidden>
-            <button type="button" id="reset-data" class="danger-btn">Khôi phục dữ liệu mẫu</button>
-          </div>
-        </div>
-      </section>
-
-      <section class="account-panel panel" id="account-panel">
-        <div class="panel-header">
-          <div>
-            <p class="panel-label">Quản lý tài khoản</p>
-            <h4>Quản lý tài khoản đăng nhập của cửa hàng</h4>
-          </div>
-        </div>
-
-        <div class="account-grid">
-          <form id="account-form" class="account-helper-card">
-            <div>
-              <p class="panel-label">Supabase Auth</p>
-              <h4>Tạo và quản lý user trực tiếp trong Supabase Dashboard</h4>
-            </div>
-            <p class="review-note">
-              Website hiện đăng nhập bằng Supabase Auth, vì vậy tài khoản dùng thật phải được tạo trong khu
-              <strong>Authentication → Users</strong> của project Supabase thay vì lưu cục bộ trong trình duyệt.
-            </p>
-            <ul class="helper-list">
-              <li>Mở danh sách user của project Supabase hiện tại.</li>
-              <li>Tạo email + mật khẩu cho nhân viên hoặc chủ quán.</li>
-              <li>Nếu cần, gán thêm metadata vai trò trong Supabase để website nhận đúng quyền.</li>
-            </ul>
-            <div class="form-actions">
-              <button type="submit" class="primary-btn">Mở Supabase Users</button>
-            </div>
-          </form>
-
-          <div class="account-list-wrap">
-            <div class="panel-label">Danh sách tài khoản đang có</div>
-            <div id="account-list" class="stack"></div>
-          </div>
-        </div>
       </section>
     </main>
   </div>

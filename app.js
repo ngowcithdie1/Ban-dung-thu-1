@@ -343,7 +343,6 @@ const SUPABASE_URL = "https://siyhtmvjjpdcciatljxh.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpeWh0bXZqanBkY2NpYXRsanhoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NjUyODYsImV4cCI6MjA5MDA0MTI4Nn0.7TKGWYNQQxIZjnW7dNPGJspLxClnPVk08Ql3-wJdMYo";
 const REMOTE_STATE_TABLE = "app_state";
 const REMOTE_STATE_ROW_ID = "main-store";
-const SUPABASE_USERS_DASHBOARD_URL = "https://supabase.com/dashboard/project/siyhtmvjjpdcciatljxh/auth/users";
 const supabaseClient = window.supabase?.createClient
   ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
   : null;
@@ -509,6 +508,10 @@ const dashboardSalesPanel = document.getElementById("dashboard-sales-panel");
 const hideDashboardErrorsButton = document.getElementById("hide-dashboard-errors");
 const hideDashboardSalesButton = document.getElementById("hide-dashboard-sales");
 const accountForm = document.getElementById("account-form");
+const accountNameInput = document.getElementById("account-name");
+const accountUsernameInput = document.getElementById("account-username");
+const accountPasswordInput = document.getElementById("account-password");
+const accountRoleInput = document.getElementById("account-role");
 const accountList = document.getElementById("account-list");
 const employeeErrorSelect = document.getElementById("employee-error-select");
 const employeeErrorForm = document.getElementById("employee-error-form");
@@ -964,20 +967,46 @@ function createManagedAccount(event) {
   event.preventDefault();
 
   if (!isOwner()) {
-    window.alert("Chỉ tài khoản chủ quán mới mở được khu quản lý tài khoản Supabase.");
+    window.alert("Chỉ tài khoản chủ quán mới tạo được tài khoản mới.");
     return;
   }
+
+  const fullName = accountNameInput.value.trim();
+  const username = accountUsernameInput.value.trim();
+  const password = accountPasswordInput.value.trim();
+  const role = accountRoleInput.value;
+
+  if (!fullName || !username || !password) {
+    window.alert("Bạn hãy nhập đủ họ tên, tên đăng nhập và mật khẩu.");
+    return;
+  }
+
+  if (state.users.some((user) => user.username.toLowerCase() === username.toLowerCase())) {
+    window.alert("Tên đăng nhập này đã tồn tại.");
+    return;
+  }
+
+  state.users.push({
+    id: createId("user"),
+    fullName,
+    username,
+    password,
+    role,
+    createdAt: new Date().toISOString()
+  });
 
   state.historyEvents.push({
     time: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
     actor: actorLabel("Chủ quán"),
-    title: "Mở Supabase Users",
-    detail: "Đã mở khu Authentication > Users để quản lý tài khoản đăng nhập thật của cửa hàng."
+    title: `Tạo tài khoản ${username}`,
+    detail: `Đã tạo tài khoản ${roleLabel(role).toLowerCase()} cho ${fullName}.`
   });
 
   saveState();
+  renderAccountList();
   renderHistory();
-  window.open(SUPABASE_USERS_DASHBOARD_URL, "_blank", "noopener");
+  accountForm.reset();
+  accountRoleInput.value = "employee";
 }
 
 function saveState() {
@@ -1003,7 +1032,7 @@ function getCurrentUser() {
 }
 
 function isOwner() {
-  return getCurrentUser()?.role === "owner";
+  return (getCurrentUser()?.role || "owner") === "owner";
 }
 
 function renderAccountList() {
@@ -1044,7 +1073,7 @@ function renderAuthState() {
 
   authStateCopy.textContent = "Website dang duoc dang nhap bang tai khoan Supabase.";
   currentUserLabel.textContent = `${currentUser.fullName} • ${roleLabel(currentUser.role)}`;
-  accountPanel.hidden = !isOwner();
+  accountPanel.hidden = true;
   renderAccountList();
 }
 
@@ -1109,6 +1138,11 @@ async function logout() {
   renderAuthState();
   changeScreen("dashboard");
   setAuthMessage("Ban da dang xuat khoi website noi bo.", "good");
+}
+
+function createManagedAccount(event) {
+  event.preventDefault();
+  window.alert("Ban hay tao them tai khoan trong Supabase Dashboard > Authentication > Users de dam bao bao mat.");
 }
 
 async function initializeSupabaseAuth() {
@@ -1472,29 +1506,17 @@ function renderDashboard() {
     }
   ];
 
-  const statDecor = [
-    { icon: "inventory_2", tone: "secondary" },
-    { icon: "warning", tone: "warning" },
-    { icon: "rule", tone: "danger" },
-    { icon: "point_of_sale", tone: "success" },
-    { icon: "person_alert", tone: "secondary" }
-  ];
-
   dashboardStats.innerHTML = stats
-    .map((stat, index) => {
-      const decor = statDecor[index] || { icon: "insights", tone: "secondary" };
-      return `
-        <${stat.action ? "button" : "article"} class="stat-card stat-tone-${decor.tone} ${stat.action ? "action-card" : ""}" ${stat.action ? `type="button" data-dashboard-action="${stat.action}"` : ""}>
-          <div class="stat-top">
-            <p class="stat-label">${stat.label}</p>
-            <span class="stat-icon material-symbols-outlined">${decor.icon}</span>
-          </div>
+    .map(
+      (stat) => `
+        <${stat.action ? "button" : "article"} class="stat-card ${stat.action ? "action-card" : ""}" ${stat.action ? `type="button" data-dashboard-action="${stat.action}"` : ""}>
+          <p class="stat-label">${stat.label}</p>
           <p class="stat-value">${stat.value}</p>
           <p class="stat-meta">${stat.meta}</p>
           ${stat.action ? `<span class="stat-hint">Mở chi tiết</span>` : ""}
         </${stat.action ? "button" : "article"}>
-      `;
-    })
+      `
+    )
     .join("");
 
   [...dashboardStats.querySelectorAll("[data-dashboard-action]")].forEach((button) => {
@@ -1664,18 +1686,8 @@ function renderConversionPreview() {
   `;
 }
 
-function getLatestPurchaseDate() {
-  if (!state.purchaseLog.length) {
-    return new Date().toISOString().slice(0, 10);
-  }
-
-  return state.purchaseLog
-    .slice()
-    .sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`))[0].date;
-}
-
 function renderPurchaseLog() {
-  const selectedDate = purchaseHistoryDateInput.value || getLatestPurchaseDate();
+  const selectedDate = purchaseHistoryDateInput.value || "2026-03-20";
   const filteredEntries = state.purchaseLog.filter((entry) => entry.date === selectedDate);
   const totalConverted = filteredEntries.reduce((sum, entry) => sum + entry.quantity * entry.factor, 0);
 
@@ -2379,7 +2391,7 @@ addIngredientRowButton.addEventListener("click", () => {
 fillPurchaseItemOptions();
 fillRecipeItemOptions();
 updatePurchaseUnits();
-purchaseHistoryDateInput.value = getLatestPurchaseDate();
+purchaseHistoryDateInput.value = state.purchaseLog[0]?.date || "2026-03-20";
 populateCatalogForm();
 resetEmployeeErrorForm();
 saveState();
