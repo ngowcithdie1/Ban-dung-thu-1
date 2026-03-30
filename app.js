@@ -382,110 +382,6 @@ function syncUsers(users = []) {
   return normalizedUsers;
 }
 
-function normalizePurchaseUnits(units = [], fallbackUnit = "đơn vị", fallbackFactor = 1) {
-  const safeFallbackFactor = Number(fallbackFactor) > 0 ? Number(fallbackFactor) : 1;
-  const normalizedUnits = Array.isArray(units)
-    ? units
-        .map((unit, index) => {
-          const label = (unit?.label || "").trim() || (index === 0 ? fallbackUnit : `đơn vị ${index + 1}`);
-          const factor = Number(unit?.factor) > 0 ? Number(unit.factor) : safeFallbackFactor;
-          return {
-            label,
-            factor,
-            example: (unit?.example || "").trim() || `1 ${label} = ${formatNumber(factor)} g`
-          };
-        })
-        .filter((unit) => unit.factor > 0)
-    : [];
-
-  return normalizedUnits.length > 0
-    ? normalizedUnits
-    : [{
-        label: fallbackUnit,
-        factor: safeFallbackFactor,
-        example: `1 ${fallbackUnit} = ${formatNumber(safeFallbackFactor)} g`
-      }];
-}
-
-function normalizeItems(items = []) {
-  if (!Array.isArray(items) || items.length === 0) {
-    return structuredClone(DEFAULT_ITEMS);
-  }
-
-  return items.map((item, index) => {
-    const fallbackFactor = Number(item?.weightValue) > 0
-      ? Number(item.weightValue)
-      : Number(item?.purchaseUnits?.[0]?.factor) > 0
-        ? Number(item.purchaseUnits[0].factor)
-        : 1;
-    return {
-      id: item?.id || createId("item"),
-      name: (item?.name || "").trim() || `Mặt hàng ${index + 1}`,
-      category: (item?.category || "").trim() || "Khác",
-      stockUnit: item?.stockUnit || "g",
-      onHand: Number(item?.onHand) || 0,
-      minLevel: Number(item?.minLevel) || 0,
-      purchaseUnits: normalizePurchaseUnits(item?.purchaseUnits, "đơn vị", fallbackFactor)
-    };
-  });
-}
-
-function normalizeRecipeDefinitions(recipes = [], items = state.items) {
-  if (!Array.isArray(recipes)) {
-    return structuredClone(DEFAULT_RECIPE_DEFINITIONS);
-  }
-
-  const validItemIds = new Set((items || []).map((item) => item.id));
-
-  return recipes
-    .map((recipe, index) => {
-      const ingredients = Array.isArray(recipe?.ingredients)
-        ? recipe.ingredients
-            .map((ingredient) => ({
-              itemId: ingredient?.itemId || "",
-              amount: Number(ingredient?.amount) || 0
-            }))
-            .filter((ingredient) => validItemIds.has(ingredient.itemId) && ingredient.amount > 0)
-        : [];
-
-      return {
-        id: recipe?.id || createId("recipe"),
-        name: (recipe?.name || "").trim() || `Món ${index + 1}`,
-        sampleSalesQuantity: Number(recipe?.sampleSalesQuantity) || 1,
-        ingredients
-      };
-    })
-    .filter((recipe) => recipe.ingredients.length > 0);
-}
-
-function syncDailySalesWithRecipes(dailySales = [], recipes = state.recipeDefinitions) {
-  const normalizedSales = normalizeDailySales(Array.isArray(dailySales) ? dailySales : []);
-  const recipeMap = new Map((recipes || []).map((recipe) => [recipe.id, recipe]));
-
-  const syncedSales = normalizedSales
-    .filter((sale) => recipeMap.has(sale.id))
-    .map((sale) => ({
-      ...sale,
-      name: recipeMap.get(sale.id)?.name || sale.name
-    }));
-
-  const existingSaleIds = new Set(syncedSales.map((sale) => sale.id));
-  (recipes || []).forEach((recipe) => {
-    if (!existingSaleIds.has(recipe.id)) {
-      syncedSales.push({
-        id: recipe.id,
-        name: recipe.name,
-        quantity: 0,
-        appliedQuantity: 0,
-        price: 0,
-        note: ""
-      });
-    }
-  });
-
-  return syncedSales;
-}
-
 function buildPersistedState() {
   return {
     items: structuredClone(state.items),
@@ -509,7 +405,7 @@ function normalizeDailySales(dailySales = []) {
 }
 
 function syncCountEntries(items, countEntries) {
-  const entryMap = new Map((Array.isArray(countEntries) ? countEntries : []).map((entry) => [entry.itemId, entry]));
+  const entryMap = new Map(countEntries.map((entry) => [entry.itemId, entry]));
   return items.map((item) => ({
     itemId: item.id,
     actual: entryMap.get(item.id)?.actual ?? item.onHand
@@ -526,17 +422,11 @@ function loadState() {
     }
 
     const parsed = JSON.parse(raw);
-    const items = normalizeItems(Array.isArray(parsed.items) ? parsed.items : structuredClone(DEFAULT_ITEMS));
+    const items = Array.isArray(parsed.items) ? parsed.items : structuredClone(DEFAULT_ITEMS);
     const purchaseLog = Array.isArray(parsed.purchaseLog) ? parsed.purchaseLog : structuredClone(DEFAULT_PURCHASE_LOG);
     const historyEvents = Array.isArray(parsed.historyEvents) ? parsed.historyEvents : structuredClone(DEFAULT_HISTORY_EVENTS);
-    const recipeDefinitions = normalizeRecipeDefinitions(
-      Array.isArray(parsed.recipeDefinitions) ? parsed.recipeDefinitions : structuredClone(DEFAULT_RECIPE_DEFINITIONS),
-      items
-    );
-    const dailySales = syncDailySalesWithRecipes(
-      Array.isArray(parsed.dailySales) ? parsed.dailySales : structuredClone(DEFAULT_DAILY_SALES),
-      recipeDefinitions
-    );
+    const dailySales = normalizeDailySales(Array.isArray(parsed.dailySales) ? parsed.dailySales : structuredClone(DEFAULT_DAILY_SALES));
+    const recipeDefinitions = Array.isArray(parsed.recipeDefinitions) ? parsed.recipeDefinitions : structuredClone(DEFAULT_RECIPE_DEFINITIONS);
     const employeeErrors = Array.isArray(parsed.employeeErrors) ? parsed.employeeErrors : structuredClone(DEFAULT_EMPLOYEE_ERRORS);
     const users = syncUsers(Array.isArray(parsed.users) ? parsed.users : []);
     const countEntries = syncCountEntries(items, Array.isArray(parsed.countEntries) ? parsed.countEntries : []);
@@ -645,7 +535,7 @@ function mapSupabaseUser(user) {
 
   return {
     id: user.id,
-    fullName: user.user_metadata?.full_name || user.email || "Tài khoản Supabase",
+    fullName: user.user_metadata?.full_name || user.email || "Tai khoan Supabase",
     username: user.email || "",
     password: "",
     role: user.user_metadata?.role || "employee",
@@ -666,14 +556,14 @@ function updateStorageStatus(message, tone = "muted") {
 function handleRemoteStateError(error) {
   remoteStateReady = false;
   updateStorageStatus(
-    "Chưa kết nối được bảng dữ liệu Supabase. Website tạm dùng dữ liệu trên trình duyệt.",
+    "Chua ket noi duoc bang du lieu Supabase. Website tam dung du lieu tren trinh duyet.",
     "danger"
   );
 
   if (!remoteStateWarningShown && error?.message) {
     window.alert(
-      "Supabase đã kết nối thành công, nhưng website chưa thấy bảng app_state. " +
-      "Bạn hãy chạy file supabase-setup.sql trong SQL Editor để website đọc/ghi dữ liệu từ database mới."
+      "Supabase da ket noi thanh cong, nhung website chua thay bang app_state. " +
+      "Ban hay chay file supabase-setup.sql trong SQL Editor de website doc/ghi du lieu tu database moi."
     );
     remoteStateWarningShown = true;
   }
@@ -698,7 +588,7 @@ async function persistStateToRemote() {
 
   remoteStateReady = true;
   updateStorageStatus(
-    `Dữ liệu đã được đồng bộ lên Supabase lúc ${new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}.`,
+    `Du lieu da duoc dong bo len Supabase luc ${new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}.`,
     "good"
   );
 }
@@ -710,7 +600,7 @@ function scheduleRemoteStateSave() {
     clearTimeout(remoteSaveTimer);
   }
 
-  updateStorageStatus("Đang đồng bộ dữ liệu lên Supabase...", "muted");
+  updateStorageStatus("Dang dong bo du lieu len Supabase...", "muted");
   remoteSaveTimer = setTimeout(() => {
     persistStateToRemote().catch(handleRemoteStateError);
   }, 350);
@@ -764,12 +654,12 @@ function saveState() {
 }
 
 function replaceState(nextState) {
-  state.items = normalizeItems(nextState.items);
-  state.purchaseLog = Array.isArray(nextState.purchaseLog) ? nextState.purchaseLog : [];
-  state.countEntries = syncCountEntries(state.items, nextState.countEntries);
-  state.historyEvents = Array.isArray(nextState.historyEvents) ? nextState.historyEvents : [];
-  state.recipeDefinitions = normalizeRecipeDefinitions(nextState.recipeDefinitions, state.items);
-  state.dailySales = syncDailySalesWithRecipes(nextState.dailySales, state.recipeDefinitions);
+  state.items = nextState.items;
+  state.purchaseLog = nextState.purchaseLog;
+  state.countEntries = syncCountEntries(nextState.items, nextState.countEntries);
+  state.historyEvents = nextState.historyEvents;
+  state.dailySales = normalizeDailySales(nextState.dailySales);
+  state.recipeDefinitions = nextState.recipeDefinitions;
   state.employeeErrors = Array.isArray(nextState.employeeErrors) ? nextState.employeeErrors : structuredClone(DEFAULT_EMPLOYEE_ERRORS);
   state.users = syncUsers(Array.isArray(nextState.users) ? nextState.users : state.users);
   state.currentUserId = typeof nextState.currentUserId === "string" && state.users.some((user) => user.id === nextState.currentUserId)
@@ -863,8 +753,8 @@ function refreshCountSaveStatus() {
   if (countSnapshotStatus.dirty) {
     setCountSaveStatus(
       varianceCount > 0
-        ? `Bạn đã sửa tồn thực tế và đang có ${varianceCount} mặt hàng lệch kho. Bấm "Lưu tồn thực tế" để ghi lại bản kiểm kho này.`
-        : 'Bạn đã sửa tồn thực tế. Bấm "Lưu tồn thực tế" để ghi lại bản kiểm kho này.',
+        ? `Ban da sua ton thuc te va dang co ${varianceCount} mat hang lech kho. Bam "Luu ton thuc te" de ghi lai ban kiem kho nay.`
+        : 'Ban da sua ton thuc te. Bam "Luu ton thuc te" de ghi lai ban kiem kho nay.',
       varianceCount > 0 ? "warning" : "muted"
     );
     return;
@@ -877,8 +767,8 @@ function refreshCountSaveStatus() {
 
   setCountSaveStatus(
     varianceCount > 0
-      ? `Đang có ${varianceCount} mặt hàng lệch kho. Bạn có thể lưu tồn thực tế trước, sau đó mới duyệt điều chỉnh kho.`
-      : "Bảng kiểm kho đang khớp với tồn hệ thống.",
+      ? `Dang co ${varianceCount} mat hang lech kho. Ban co the luu ton thuc te truoc, sau do moi duyet dieu chinh kho.`
+      : "Bang kiem kho dang khop voi ton he thong.",
     varianceCount > 0 ? "warning" : "good"
   );
 }
@@ -1103,7 +993,7 @@ function saveState() {
   }
 
   updateStorageStatus(
-    `Dữ liệu đã được lưu trên trình duyệt lúc ${new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}.`,
+    `Du lieu da duoc luu tren trinh duyet luc ${new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}.`,
     "muted"
   );
 }
@@ -1123,12 +1013,12 @@ function renderAccountList() {
     ? `
       <article class="account-item">
         <h5>${currentUser.fullName}</h5>
-        <p><strong>Email:</strong> ${currentUser.email || currentUser.username || "Chưa có email"}</p>
-        <p><strong>Vai trò:</strong> ${roleLabel(currentUser.role)}</p>
-        <p><strong>Quản lý tài khoản:</strong> Supabase Dashboard &gt; Authentication &gt; Users</p>
+        <p><strong>Email:</strong> ${currentUser.email || currentUser.username || "Chua co email"}</p>
+        <p><strong>Vai tro:</strong> ${roleLabel(currentUser.role)}</p>
+        <p><strong>Quan ly tai khoan:</strong> Supabase Dashboard > Authentication > Users</p>
       </article>
     `
-    : `<article class="account-item"><h5>Chưa đăng nhập</h5><p>Đăng nhập bằng tài khoản Supabase để truy cập website.</p></article>`;
+    : `<article class="account-item"><h5>Chua dang nhap</h5><p>Dang nhap bang tai khoan Supabase de truy cap website.</p></article>`;
 }
 
 function renderAuthState() {
@@ -1141,18 +1031,18 @@ function renderAuthState() {
   window.scrollTo({ top: 0, left: 0, behavior: "auto" });
 
   loginForm.hidden = false;
-  registerForm.hidden = false;
+  registerForm.hidden = true;
 
   if (!currentUser) {
-    currentUserLabel.textContent = "Chưa đăng nhập";
+    currentUserLabel.textContent = "Chua dang nhap";
     accountPanel.hidden = true;
-    authStateCopy.textContent = "Dùng email và mật khẩu đã tạo trong Supabase Auth để đăng nhập vào website.";
-    updateStorageStatus("Hãy đăng nhập để đồng bộ dữ liệu kho lên Supabase.", "muted");
+    authStateCopy.textContent = "Dung email va mat khau da tao trong Supabase Auth de dang nhap vao website.";
+    updateStorageStatus("Hay dang nhap de dong bo du lieu kho len Supabase.", "muted");
     renderAccountList();
     return;
   }
 
-  authStateCopy.textContent = "Website đang được đăng nhập bằng tài khoản Supabase.";
+  authStateCopy.textContent = "Website dang duoc dang nhap bang tai khoan Supabase.";
   currentUserLabel.textContent = `${currentUser.fullName} • ${roleLabel(currentUser.role)}`;
   accountPanel.hidden = !isOwner();
   renderAccountList();
@@ -1160,7 +1050,7 @@ function renderAuthState() {
 
 function createOwnerAccount(event) {
   event.preventDefault();
-  window.open(SUPABASE_USERS_DASHBOARD_URL, "_blank", "noopener");
+  window.alert("Ban hay tao tai khoan truoc trong Supabase Dashboard > Authentication > Users.");
 }
 
 async function login(event) {
@@ -1170,16 +1060,16 @@ async function login(event) {
   const password = loginPasswordInput.value.trim();
 
   if (!email || !password) {
-    setAuthMessage("Bạn hãy nhập đầy đủ email và mật khẩu.", "danger");
+    setAuthMessage("Ban hay nhap day du email va mat khau.", "danger");
     return;
   }
 
   if (!supabaseClient) {
-    setAuthMessage("Website chưa nạp được Supabase client.", "danger");
+    setAuthMessage("Website chua nap duoc Supabase client.", "danger");
     return;
   }
 
-  setAuthMessage("Đang kiểm tra tài khoản Supabase...", "");
+  setAuthMessage("Dang kiem tra tai khoan Supabase...", "");
 
   const { data, error } = await supabaseClient.auth.signInWithPassword({
     email,
@@ -1187,7 +1077,7 @@ async function login(event) {
   });
 
   if (error || !data?.user) {
-    setAuthMessage(error?.message || "Đăng nhập thất bại. Bạn hãy kiểm tra lại email và mật khẩu.", "danger");
+    setAuthMessage(error?.message || "Dang nhap that bai. Ban hay kiem tra lai email va mat khau.", "danger");
     return;
   }
 
@@ -1202,7 +1092,7 @@ async function login(event) {
     });
   }
 
-  setAuthMessage(`Đăng nhập thành công với tài khoản ${supabaseAuthUser.fullName}.`, "good");
+  setAuthMessage(`Dang nhap thanh cong voi tai khoan ${supabaseAuthUser.fullName}.`, "good");
   renderAuthState();
   renderAll();
   loginForm.reset();
@@ -1218,7 +1108,7 @@ async function logout() {
   saveState();
   renderAuthState();
   changeScreen("dashboard");
-  setAuthMessage("Bạn đã đăng xuất khỏi website nội bộ.", "good");
+  setAuthMessage("Ban da dang xuat khoi website noi bo.", "good");
 }
 
 async function initializeSupabaseAuth() {
@@ -1830,14 +1720,6 @@ function renderRecipePreview() {
       ${ingredients
         .map((ingredient) => {
           const item = findItem(ingredient.itemId);
-          if (!item) {
-            return `
-              <div class="conversion-step">
-                <strong>Nguyên liệu đã bị xóa</strong>
-                <p>Công thức này đang tham chiếu tới một mặt hàng không còn trong danh mục.</p>
-              </div>
-            `;
-          }
           return `
             <div class="conversion-step">
               <strong>${item.name}</strong>
@@ -1854,24 +1736,19 @@ function renderRecipePreview() {
 function renderRecipeTable() {
   recipeTable.innerHTML = state.recipeDefinitions
     .map((recipe) => {
-      const validIngredients = recipe.ingredients
+      const ingredientText = recipe.ingredients
         .map((ingredient) => {
           const item = findItem(ingredient.itemId);
-          return item ? { ingredient, item } : null;
+          return `${item.name}: ${formatDisplayQuantity(ingredient.amount, item.stockUnit)}`;
         })
-        .filter(Boolean);
+        .join(" | ");
 
-      const ingredientText = validIngredients
+      const deductedText = recipe.ingredients
         .map((ingredient) => {
-          return `${ingredient.item.name}: ${formatDisplayQuantity(ingredient.ingredient.amount, ingredient.item.stockUnit)}`;
+          const item = findItem(ingredient.itemId);
+          return `${item.name}: ${formatDisplayQuantity(ingredient.amount * recipe.sampleSalesQuantity, item.stockUnit)}`;
         })
-        .join(" | ") || "Chưa có nguyên liệu hợp lệ";
-
-      const deductedText = validIngredients
-        .map((ingredient) => {
-          return `${ingredient.item.name}: ${formatDisplayQuantity(ingredient.ingredient.amount * recipe.sampleSalesQuantity, ingredient.item.stockUnit)}`;
-        })
-        .join(" | ") || "Chưa có dữ liệu khấu trừ";
+        .join(" | ");
 
       return `
         <tr>
@@ -1980,7 +1857,6 @@ function getConsumptionSummary() {
     const appliedQuantity = Number(sale.appliedQuantity) || 0;
 
     ingredients.forEach((ingredient) => {
-      if (!findItem(ingredient.itemId)) return;
       const current = totals.get(ingredient.itemId) || 0;
       totals.set(ingredient.itemId, current + ingredient.amount * appliedQuantity);
     });
@@ -2008,7 +1884,6 @@ function renderSalesStats() {
   consumptionTable.innerHTML = consumptionSummary
     .map(({ itemId, amount }) => {
       const item = findItem(itemId);
-      if (!item) return "";
       const remain = item.onHand - amount;
       return `
         <tr>
@@ -2346,10 +2221,6 @@ function addPurchaseEntry(event) {
   event.preventDefault();
 
   const item = findItem(purchaseItemSelect.value);
-  if (!item) {
-    window.alert("Mặt hàng này không còn trong danh mục. Bạn hãy chọn lại trước khi lưu phiếu nhập.");
-    return;
-  }
   const selectedUnit = item.purchaseUnits.find((unit) => unit.label === purchaseUnitSelect.value) || item.purchaseUnits[0];
   const quantity = Number(purchaseQuantityInput.value) || 0;
   const price = Number(purchasePriceInput.value) || 0;
@@ -2408,8 +2279,8 @@ function approveAdjustments() {
 
   countSnapshotStatus = {
     message: changedCount > 0
-      ? `Đã duyệt điều chỉnh kho lúc ${time}. ${changedCount} mặt hàng đã được cập nhật theo tồn thực tế.`
-      : `Không có mặt hàng nào cần điều chỉnh lúc ${time}.`,
+      ? `Da duyet dieu chinh kho luc ${time}. ${changedCount} mat hang da duoc cap nhat theo ton thuc te.`
+      : `Khong co mat hang nao can dieu chinh luc ${time}.`,
     tone: changedCount > 0 ? "good" : "muted",
     dirty: false
   };
@@ -2425,17 +2296,17 @@ function saveCountSnapshot() {
 
   state.historyEvents.push({
     time,
-    actor: actorLabel("Nhân viên kiểm kho"),
-    title: "Lưu tồn thực tế kiểm kho",
+    actor: actorLabel("NhÃ¢n viÃªn kiá»ƒm kho"),
+    title: "LÆ°u tá»“n thá»±c táº¿ kiá»ƒm kho",
     detail: varianceCount > 0
-      ? `Đã lưu bản kiểm kho có ${varianceCount} mặt hàng đang lệch so với tồn hệ thống.`
-      : "Đã lưu bản kiểm kho và tất cả mặt hàng đang khớp với tồn hệ thống."
+      ? `Da luu ban kiem kho co ${varianceCount} mat hang dang lech so voi ton he thong.`
+      : "Da luu ban kiem kho va tat ca mat hang dang khop voi ton he thong."
   });
 
   countSnapshotStatus = {
     message: varianceCount > 0
-      ? `Đã lưu tồn thực tế lúc ${time}. Đang có ${varianceCount} mặt hàng lệch kho chờ quản lý xem và duyệt.`
-      : `Đã lưu tồn thực tế lúc ${time}. Tất cả mặt hàng đang khớp với tồn hệ thống.`,
+      ? `Da luu ton thuc te luc ${time}. Dang co ${varianceCount} mat hang lech kho cho quan ly xem va duyet.`
+      : `Da luu ton thuc te luc ${time}. Tat ca mat hang dang khop voi ton he thong.`,
     tone: varianceCount > 0 ? "warning" : "good",
     dirty: false
   };
@@ -2445,187 +2316,6 @@ function saveCountSnapshot() {
   renderReport();
   renderHistory();
   renderCountTable();
-}
-
-function renderDashboard() {
-  const dashboardPerformance = document.getElementById("dashboard-performance");
-  const dashboardTopList = document.getElementById("dashboard-top-list");
-  const lowStockItems = state.items.filter((item) => item.onHand <= item.minLevel);
-  const countVarianceItems = state.countEntries.filter((entry) => {
-    const item = findItem(entry.itemId);
-    return item && entry.actual !== item.onHand;
-  });
-  const unresolvedEmployeeErrors = state.employeeErrors.filter((entry) => entry.status !== "Đã sửa xong");
-  const totalSoldQuantity = state.dailySales.reduce((sum, sale) => sum + (Number(sale.quantity) || 0), 0);
-  const totalRevenue = state.dailySales.reduce((sum, sale) => sum + ((Number(sale.quantity) || 0) * (Number(sale.price) || 0)), 0);
-
-  const stats = [
-    {
-      label: "Tổng mặt hàng đang theo dõi",
-      value: `${state.items.length}`,
-      meta: "Bao gồm nguyên liệu, đông lạnh và bao bì"
-    },
-    {
-      label: "Mặt hàng sắp hết",
-      value: `${lowStockItems.length}`,
-      meta: "Nên xem để nhập thêm"
-    },
-    {
-      label: "Dòng chênh lệch kiểm kho",
-      value: `${countVarianceItems.length}`,
-      meta: "Cần quản lý xem và duyệt"
-    },
-    {
-      label: "Bán trong ngày",
-      value: `${formatNumber(totalSoldQuantity)}`,
-      meta: "Bấm để cập nhật món bán và tự trừ kho",
-      action: "sales-panel"
-    },
-    {
-      label: "Lỗi nhân viên cần xem",
-      value: `${unresolvedEmployeeErrors.length}`,
-      meta: "Bấm để xem lịch sử lỗi và chỉnh sửa ngay trong tổng quan",
-      action: "employee-errors"
-    }
-  ];
-
-  const statDecor = [
-    { icon: "inventory_2", tone: "secondary" },
-    { icon: "warning", tone: "warning" },
-    { icon: "rule", tone: "danger" },
-    { icon: "point_of_sale", tone: "success" },
-    { icon: "person_alert", tone: "secondary" }
-  ];
-
-  dashboardStats.innerHTML = stats
-    .map((stat, index) => {
-      const decor = statDecor[index] || { icon: "insights", tone: "secondary" };
-      return `
-        <${stat.action ? "button" : "article"} class="stat-card stat-tone-${decor.tone} ${stat.action ? "action-card" : ""}" ${stat.action ? `type="button" data-dashboard-action="${stat.action}"` : ""}>
-          <div class="stat-top">
-            <p class="stat-label">${stat.label}</p>
-            <span class="stat-icon material-symbols-outlined">${decor.icon}</span>
-          </div>
-          <p class="stat-value">${stat.value}</p>
-          <p class="stat-meta">${stat.meta}</p>
-          ${stat.action ? `<span class="stat-hint">Mở chi tiết</span>` : ""}
-        </${stat.action ? "button" : "article"}>
-      `;
-    })
-    .join("");
-
-  [...dashboardStats.querySelectorAll("[data-dashboard-action]")].forEach((button) => {
-    button.addEventListener("click", () => {
-      if (button.dataset.dashboardAction === "employee-errors") {
-        changeScreen("dashboard", { showEmployeeErrors: true, activeNav: "dashboard" });
-      }
-      if (button.dataset.dashboardAction === "sales-panel") {
-        changeScreen("dashboard", { showSalesPanel: true, activeNav: "dashboard" });
-      }
-    });
-  });
-
-  if (dashboardPerformance) {
-    const metrics = [
-      {
-        label: "Doanh thu hôm nay",
-        value: formatCurrency(totalRevenue),
-        detail: `${formatNumber(totalSoldQuantity)} món đã chốt`
-      },
-      {
-        label: "Điểm lệch cần duyệt",
-        value: `${countVarianceItems.length}`,
-        detail: `${lowStockItems.length} mặt hàng sắp hết`
-      },
-      {
-        label: "Lỗi nhân viên mở",
-        value: `${unresolvedEmployeeErrors.length}`,
-        detail: "Theo dõi ngay trong dashboard"
-      }
-    ];
-
-    dashboardPerformance.innerHTML = metrics
-      .map((metric) => `
-        <article class="metric-card">
-          <p class="stat-label">${metric.label}</p>
-          <strong>${metric.value}</strong>
-          <p class="stat-meta">${metric.detail}</p>
-        </article>
-      `)
-      .join("");
-  }
-
-  if (dashboardTopList) {
-    const topSales = state.dailySales
-      .slice()
-      .sort((a, b) => (Number(b.quantity) || 0) - (Number(a.quantity) || 0))
-      .slice(0, 4);
-    const maxQuantity = topSales.length ? Math.max(...topSales.map((sale) => Number(sale.quantity) || 0), 1) : 1;
-
-    dashboardTopList.innerHTML = topSales.length
-      ? topSales
-          .map((sale) => {
-            const quantity = Number(sale.quantity) || 0;
-            const width = Math.max(16, Math.round((quantity / maxQuantity) * 100));
-            return `
-              <article class="side-feed-item">
-                <div class="side-feed-top">
-                  <div>
-                    <h5>${sale.name}</h5>
-                    <p>${formatCurrency((Number(sale.price) || 0) * quantity)}</p>
-                  </div>
-                  <span class="side-feed-value">${formatNumber(quantity)}</span>
-                </div>
-                <div class="side-progress"><span style="width:${width}%"></span></div>
-              </article>
-            `;
-          })
-          .join("")
-      : `
-        <article class="side-feed-item">
-          <h5>Chưa có món bán</h5>
-          <p>Hãy cập nhật bán trong ngày để hệ thống hiển thị danh sách món bán mạnh.</p>
-        </article>
-      `;
-  }
-
-  const alerts = [
-    ...lowStockItems.map((item) => ({
-      title: `${item.name} đang sắp hết`,
-      detail: `Tồn hiện tại ${formatDisplayQuantity(item.onHand, item.stockUnit)}, mức cảnh báo ${formatDisplayQuantity(item.minLevel, item.stockUnit)}.`,
-      tag: "Nên nhập thêm",
-      tone: "warning"
-    })),
-    ...countVarianceItems.slice(0, 3).map((entry) => {
-      const item = findItem(entry.itemId);
-      const meta = varianceMeta(item.onHand, entry.actual, item.stockUnit);
-      return {
-        title: `${item.name} đang lệch kho`,
-        detail: `Hệ thống ${formatDisplayQuantity(item.onHand, item.stockUnit)}, thực tế ${formatDisplayQuantity(entry.actual, item.stockUnit)}.`,
-        tag: meta.diffText,
-        tone: "danger"
-      };
-    })
-  ];
-
-  dashboardAlerts.innerHTML = alerts.length
-    ? alerts
-        .map((alert) => `
-          <article class="side-feed-item">
-            <div class="side-feed-top">
-              <h5>${alert.title}</h5>
-              <span class="badge ${alert.tone}">${alert.tag}</span>
-            </div>
-            <p>${alert.detail}</p>
-          </article>
-        `)
-        .join("")
-    : `
-      <article class="side-feed-item">
-        <h5>Kho đang ổn định</h5>
-        <p>Hiện chưa có mặt hàng nào sắp hết hoặc lệch so với kiểm kho cuối ngày.</p>
-      </article>
-    `;
 }
 
 function renderAll() {
