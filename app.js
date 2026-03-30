@@ -538,7 +538,7 @@ function mapSupabaseUser(user) {
     fullName: user.user_metadata?.full_name || user.email || "Tai khoan Supabase",
     username: user.email || "",
     password: "",
-    role: user.user_metadata?.role || "employee",
+    role: user.user_metadata?.role || "owner",
     email: user.email || "",
     createdAt: user.created_at || new Date().toISOString()
   };
@@ -1397,7 +1397,6 @@ function deleteCatalogItem() {
 
   state.items = state.items.filter((entry) => entry.id !== itemId);
   state.countEntries = state.countEntries.filter((entry) => entry.itemId !== itemId);
-  state.purchaseLog = state.purchaseLog.filter((entry) => entry.itemId !== itemId);
 
   state.recipeDefinitions = state.recipeDefinitions
     .map((recipe) => ({
@@ -1416,7 +1415,7 @@ function deleteCatalogItem() {
     time,
     actor: actorLabel("Quản lý"),
     title: `Xóa mặt hàng ${item.name}`,
-    detail: "Đã xóa mặt hàng này khỏi danh mục, phiếu nhập liên quan và làm sạch dữ liệu phụ thuộc."
+    detail: "Đã xóa mặt hàng này khỏi danh mục và làm sạch dữ liệu liên quan."
   });
 
   fillCatalogItemOptions();
@@ -1689,16 +1688,14 @@ function renderPurchaseLog() {
     .reverse()
     .map((entry) => {
       const item = findItem(entry.itemId);
-      const itemName = item?.name || "Mặt hàng đã xóa";
-      const stockUnit = item?.stockUnit || "g";
       const converted = entry.quantity * entry.factor;
       return `
         <tr>
           <td>${formatDateDisplay(entry.date)}</td>
           <td>${entry.time}</td>
-          <td>${itemName}</td>
+          <td>${item.name}</td>
           <td>${entry.quantity} ${entry.unit}</td>
-          <td>${formatDisplayQuantity(converted, stockUnit)}</td>
+          <td>${formatDisplayQuantity(converted, item.stockUnit)}</td>
           <td>${formatCurrency(entry.price)}</td>
           <td>${entry.supplier}</td>
         </tr>
