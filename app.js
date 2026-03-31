@@ -343,6 +343,7 @@ const SUPABASE_URL = "https://siyhtmvjjpdcciatljxh.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpeWh0bXZqanBkY2NpYXRsanhoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NjUyODYsImV4cCI6MjA5MDA0MTI4Nn0.7TKGWYNQQxIZjnW7dNPGJspLxClnPVk08Ql3-wJdMYo";
 const REMOTE_STATE_TABLE = "app_state";
 const REMOTE_STATE_ROW_ID = "main-store";
+const SUPABASE_USERS_DASHBOARD_URL = "https://supabase.com/dashboard/project/siyhtmvjjpdcciatljxh/auth/users";
 const supabaseClient = window.supabase?.createClient
   ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
   : null;
@@ -381,6 +382,110 @@ function syncUsers(users = []) {
   return normalizedUsers;
 }
 
+function normalizePurchaseUnits(units = [], fallbackUnit = "đơn vị", fallbackFactor = 1) {
+  const safeFallbackFactor = Number(fallbackFactor) > 0 ? Number(fallbackFactor) : 1;
+  const normalizedUnits = Array.isArray(units)
+    ? units
+        .map((unit, index) => {
+          const label = (unit?.label || "").trim() || (index === 0 ? fallbackUnit : `đơn vị ${index + 1}`);
+          const factor = Number(unit?.factor) > 0 ? Number(unit.factor) : safeFallbackFactor;
+          return {
+            label,
+            factor,
+            example: (unit?.example || "").trim() || `1 ${label} = ${formatNumber(factor)} g`
+          };
+        })
+        .filter((unit) => unit.factor > 0)
+    : [];
+
+  return normalizedUnits.length > 0
+    ? normalizedUnits
+    : [{
+        label: fallbackUnit,
+        factor: safeFallbackFactor,
+        example: `1 ${fallbackUnit} = ${formatNumber(safeFallbackFactor)} g`
+      }];
+}
+
+function normalizeItems(items = []) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return structuredClone(DEFAULT_ITEMS);
+  }
+
+  return items.map((item, index) => {
+    const fallbackFactor = Number(item?.weightValue) > 0
+      ? Number(item.weightValue)
+      : Number(item?.purchaseUnits?.[0]?.factor) > 0
+        ? Number(item.purchaseUnits[0].factor)
+        : 1;
+    return {
+      id: item?.id || createId("item"),
+      name: (item?.name || "").trim() || `Mặt hàng ${index + 1}`,
+      category: (item?.category || "").trim() || "Khác",
+      stockUnit: item?.stockUnit || "g",
+      onHand: Number(item?.onHand) || 0,
+      minLevel: Number(item?.minLevel) || 0,
+      purchaseUnits: normalizePurchaseUnits(item?.purchaseUnits, "đơn vị", fallbackFactor)
+    };
+  });
+}
+
+function normalizeRecipeDefinitions(recipes = [], items = state.items) {
+  if (!Array.isArray(recipes)) {
+    return structuredClone(DEFAULT_RECIPE_DEFINITIONS);
+  }
+
+  const validItemIds = new Set((items || []).map((item) => item.id));
+
+  return recipes
+    .map((recipe, index) => {
+      const ingredients = Array.isArray(recipe?.ingredients)
+        ? recipe.ingredients
+            .map((ingredient) => ({
+              itemId: ingredient?.itemId || "",
+              amount: Number(ingredient?.amount) || 0
+            }))
+            .filter((ingredient) => validItemIds.has(ingredient.itemId) && ingredient.amount > 0)
+        : [];
+
+      return {
+        id: recipe?.id || createId("recipe"),
+        name: (recipe?.name || "").trim() || `Món ${index + 1}`,
+        sampleSalesQuantity: Number(recipe?.sampleSalesQuantity) || 1,
+        ingredients
+      };
+    })
+    .filter((recipe) => recipe.ingredients.length > 0);
+}
+
+function syncDailySalesWithRecipes(dailySales = [], recipes = state.recipeDefinitions) {
+  const normalizedSales = normalizeDailySales(Array.isArray(dailySales) ? dailySales : []);
+  const recipeMap = new Map((recipes || []).map((recipe) => [recipe.id, recipe]));
+
+  const syncedSales = normalizedSales
+    .filter((sale) => recipeMap.has(sale.id))
+    .map((sale) => ({
+      ...sale,
+      name: recipeMap.get(sale.id)?.name || sale.name
+    }));
+
+  const existingSaleIds = new Set(syncedSales.map((sale) => sale.id));
+  (recipes || []).forEach((recipe) => {
+    if (!existingSaleIds.has(recipe.id)) {
+      syncedSales.push({
+        id: recipe.id,
+        name: recipe.name,
+        quantity: 0,
+        appliedQuantity: 0,
+        price: 0,
+        note: ""
+      });
+    }
+  });
+
+  return syncedSales;
+}
+
 function buildPersistedState() {
   return {
     items: structuredClone(state.items),
@@ -404,7 +509,7 @@ function normalizeDailySales(dailySales = []) {
 }
 
 function syncCountEntries(items, countEntries) {
-  const entryMap = new Map(countEntries.map((entry) => [entry.itemId, entry]));
+  const entryMap = new Map((Array.isArray(countEntries) ? countEntries : []).map((entry) => [entry.itemId, entry]));
   return items.map((item) => ({
     itemId: item.id,
     actual: entryMap.get(item.id)?.actual ?? item.onHand
@@ -421,11 +526,17 @@ function loadState() {
     }
 
     const parsed = JSON.parse(raw);
-    const items = Array.isArray(parsed.items) ? parsed.items : structuredClone(DEFAULT_ITEMS);
+    const items = normalizeItems(Array.isArray(parsed.items) ? parsed.items : structuredClone(DEFAULT_ITEMS));
     const purchaseLog = Array.isArray(parsed.purchaseLog) ? parsed.purchaseLog : structuredClone(DEFAULT_PURCHASE_LOG);
     const historyEvents = Array.isArray(parsed.historyEvents) ? parsed.historyEvents : structuredClone(DEFAULT_HISTORY_EVENTS);
-    const dailySales = normalizeDailySales(Array.isArray(parsed.dailySales) ? parsed.dailySales : structuredClone(DEFAULT_DAILY_SALES));
-    const recipeDefinitions = Array.isArray(parsed.recipeDefinitions) ? parsed.recipeDefinitions : structuredClone(DEFAULT_RECIPE_DEFINITIONS);
+    const recipeDefinitions = normalizeRecipeDefinitions(
+      Array.isArray(parsed.recipeDefinitions) ? parsed.recipeDefinitions : structuredClone(DEFAULT_RECIPE_DEFINITIONS),
+      items
+    );
+    const dailySales = syncDailySalesWithRecipes(
+      Array.isArray(parsed.dailySales) ? parsed.dailySales : structuredClone(DEFAULT_DAILY_SALES),
+      recipeDefinitions
+    );
     const employeeErrors = Array.isArray(parsed.employeeErrors) ? parsed.employeeErrors : structuredClone(DEFAULT_EMPLOYEE_ERRORS);
     const users = syncUsers(Array.isArray(parsed.users) ? parsed.users : []);
     const countEntries = syncCountEntries(items, Array.isArray(parsed.countEntries) ? parsed.countEntries : []);
@@ -493,6 +604,7 @@ const salesTable = document.getElementById("sales-table");
 const consumptionTable = document.getElementById("consumption-table");
 const salesSyncStatus = document.getElementById("sales-sync-status");
 const saveSalesUpdatesButton = document.getElementById("save-sales-updates");
+const posProductGrid = document.getElementById("pos-product-grid");
 const lowStockList = document.getElementById("low-stock-list");
 const healthyStockList = document.getElementById("healthy-stock-list");
 const historyList = document.getElementById("history-list");
@@ -504,14 +616,10 @@ const currentUserLabel = document.getElementById("current-user-label");
 const logoutButton = document.getElementById("logout-button");
 const accountPanel = document.getElementById("account-panel");
 const dashboardErrorPanel = document.getElementById("dashboard-error-panel");
-const dashboardSalesPanel = document.getElementById("dashboard-sales-panel");
+const dashboardSalesPanel = document.getElementById("screen-pos");
 const hideDashboardErrorsButton = document.getElementById("hide-dashboard-errors");
 const hideDashboardSalesButton = document.getElementById("hide-dashboard-sales");
 const accountForm = document.getElementById("account-form");
-const accountNameInput = document.getElementById("account-name");
-const accountUsernameInput = document.getElementById("account-username");
-const accountPasswordInput = document.getElementById("account-password");
-const accountRoleInput = document.getElementById("account-role");
 const accountList = document.getElementById("account-list");
 const employeeErrorSelect = document.getElementById("employee-error-select");
 const employeeErrorForm = document.getElementById("employee-error-form");
@@ -538,10 +646,10 @@ function mapSupabaseUser(user) {
 
   return {
     id: user.id,
-    fullName: user.user_metadata?.full_name || user.email || "Tai khoan Supabase",
+    fullName: user.user_metadata?.full_name || user.email || "Tài khoản Supabase",
     username: user.email || "",
     password: "",
-    role: user.user_metadata?.role || "owner",
+    role: user.user_metadata?.role || user.app_metadata?.role || "employee",
     email: user.email || "",
     createdAt: user.created_at || new Date().toISOString()
   };
@@ -559,14 +667,14 @@ function updateStorageStatus(message, tone = "muted") {
 function handleRemoteStateError(error) {
   remoteStateReady = false;
   updateStorageStatus(
-    "Chua ket noi duoc bang du lieu Supabase. Website tam dung du lieu tren trinh duyet.",
+    "Chưa kết nối được bảng dữ liệu Supabase. Website tạm dùng dữ liệu trên trình duyệt.",
     "danger"
   );
 
   if (!remoteStateWarningShown && error?.message) {
     window.alert(
-      "Supabase da ket noi thanh cong, nhung website chua thay bang app_state. " +
-      "Ban hay chay file supabase-setup.sql trong SQL Editor de website doc/ghi du lieu tu database moi."
+      "Supabase đã kết nối thành công, nhưng website chưa thấy bảng app_state. " +
+      "Bạn hãy chạy file supabase-setup.sql trong SQL Editor để website đọc/ghi dữ liệu từ database mới."
     );
     remoteStateWarningShown = true;
   }
@@ -591,7 +699,7 @@ async function persistStateToRemote() {
 
   remoteStateReady = true;
   updateStorageStatus(
-    `Du lieu da duoc dong bo len Supabase luc ${new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}.`,
+    `Dữ liệu đã được đồng bộ lên Supabase lúc ${new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}.`,
     "good"
   );
 }
@@ -603,7 +711,7 @@ function scheduleRemoteStateSave() {
     clearTimeout(remoteSaveTimer);
   }
 
-  updateStorageStatus("Dang dong bo du lieu len Supabase...", "muted");
+  updateStorageStatus("Đang đồng bộ dữ liệu lên Supabase...", "muted");
   remoteSaveTimer = setTimeout(() => {
     persistStateToRemote().catch(handleRemoteStateError);
   }, 350);
@@ -657,12 +765,12 @@ function saveState() {
 }
 
 function replaceState(nextState) {
-  state.items = nextState.items;
-  state.purchaseLog = nextState.purchaseLog;
-  state.countEntries = syncCountEntries(nextState.items, nextState.countEntries);
-  state.historyEvents = nextState.historyEvents;
-  state.dailySales = normalizeDailySales(nextState.dailySales);
-  state.recipeDefinitions = nextState.recipeDefinitions;
+  state.items = normalizeItems(nextState.items);
+  state.purchaseLog = Array.isArray(nextState.purchaseLog) ? nextState.purchaseLog : [];
+  state.countEntries = syncCountEntries(state.items, nextState.countEntries);
+  state.historyEvents = Array.isArray(nextState.historyEvents) ? nextState.historyEvents : [];
+  state.recipeDefinitions = normalizeRecipeDefinitions(nextState.recipeDefinitions, state.items);
+  state.dailySales = syncDailySalesWithRecipes(nextState.dailySales, state.recipeDefinitions);
   state.employeeErrors = Array.isArray(nextState.employeeErrors) ? nextState.employeeErrors : structuredClone(DEFAULT_EMPLOYEE_ERRORS);
   state.users = syncUsers(Array.isArray(nextState.users) ? nextState.users : state.users);
   state.currentUserId = typeof nextState.currentUserId === "string" && state.users.some((user) => user.id === nextState.currentUserId)
@@ -698,6 +806,31 @@ function roleLabel(role) {
 function actorLabel(fallback) {
   const user = getCurrentUser();
   return user ? user.fullName : fallback;
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function escapeAttr(value) {
+  return escapeHtml(value).replace(/`/g, "&#96;");
+}
+
+function getPurchaseLogConverted(entry) {
+  if (Number(entry.actualWeight) > 0) {
+    return Number(entry.actualWeight);
+  }
+
+  if (Number(entry.converted) > 0) {
+    return Number(entry.converted);
+  }
+
+  return (Number(entry.quantity) || 0) * (Number(entry.factor) || 0);
 }
 
 function setSalesSyncStatus(message, tone = "") {
@@ -756,8 +889,8 @@ function refreshCountSaveStatus() {
   if (countSnapshotStatus.dirty) {
     setCountSaveStatus(
       varianceCount > 0
-        ? `Ban da sua ton thuc te va dang co ${varianceCount} mat hang lech kho. Bam "Luu ton thuc te" de ghi lai ban kiem kho nay.`
-        : 'Ban da sua ton thuc te. Bam "Luu ton thuc te" de ghi lai ban kiem kho nay.',
+        ? `Bạn đã sửa tồn thực tế và đang có ${varianceCount} mặt hàng lệch kho. Bấm "Lưu tồn thực tế" để ghi lại bản kiểm kho này.`
+        : 'Bạn đã sửa tồn thực tế. Bấm "Lưu tồn thực tế" để ghi lại bản kiểm kho này.',
       varianceCount > 0 ? "warning" : "muted"
     );
     return;
@@ -770,8 +903,8 @@ function refreshCountSaveStatus() {
 
   setCountSaveStatus(
     varianceCount > 0
-      ? `Dang co ${varianceCount} mat hang lech kho. Ban co the luu ton thuc te truoc, sau do moi duyet dieu chinh kho.`
-      : "Bang kiem kho dang khop voi ton he thong.",
+      ? `Đang có ${varianceCount} mặt hàng lệch kho. Bạn có thể lưu tồn thực tế trước, sau đó mới duyệt điều chỉnh kho.`
+      : "Bảng kiểm kho đang khớp với tồn hệ thống.",
     varianceCount > 0 ? "warning" : "good"
   );
 }
@@ -788,13 +921,13 @@ function hideDashboardErrors() {
 }
 
 function showDashboardSales(scrollIntoView = false) {
-  dashboardSalesPanel.hidden = false;
-  if (scrollIntoView) {
-    dashboardSalesPanel.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
+  changeScreen("pos", { activeNav: "pos" });
 }
 
 function hideDashboardSales() {
+  if (dashboardSalesPanel?.dataset.screenPanel === "pos") {
+    return;
+  }
   dashboardSalesPanel.hidden = true;
 }
 
@@ -896,7 +1029,7 @@ function renderAuthState() {
   }
 
   currentUserLabel.textContent = `${currentUser.fullName} • ${roleLabel(currentUser.role)}`;
-  accountPanel.hidden = !isOwner();
+  accountPanel.hidden = false;
   renderAccountList();
 }
 
@@ -966,47 +1099,16 @@ function logout() {
 function createManagedAccount(event) {
   event.preventDefault();
 
-  if (!isOwner()) {
-    window.alert("Chỉ tài khoản chủ quán mới tạo được tài khoản mới.");
-    return;
-  }
-
-  const fullName = accountNameInput.value.trim();
-  const username = accountUsernameInput.value.trim();
-  const password = accountPasswordInput.value.trim();
-  const role = accountRoleInput.value;
-
-  if (!fullName || !username || !password) {
-    window.alert("Bạn hãy nhập đủ họ tên, tên đăng nhập và mật khẩu.");
-    return;
-  }
-
-  if (state.users.some((user) => user.username.toLowerCase() === username.toLowerCase())) {
-    window.alert("Tên đăng nhập này đã tồn tại.");
-    return;
-  }
-
-  state.users.push({
-    id: createId("user"),
-    fullName,
-    username,
-    password,
-    role,
-    createdAt: new Date().toISOString()
-  });
-
   state.historyEvents.push({
     time: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
     actor: actorLabel("Chủ quán"),
-    title: `Tạo tài khoản ${username}`,
-    detail: `Đã tạo tài khoản ${roleLabel(role).toLowerCase()} cho ${fullName}.`
+    title: "Mở Supabase Users",
+    detail: "Đã mở khu Authentication > Users để quản lý tài khoản đăng nhập thật của cửa hàng."
   });
 
   saveState();
-  renderAccountList();
   renderHistory();
-  accountForm.reset();
-  accountRoleInput.value = "employee";
+  window.open(SUPABASE_USERS_DASHBOARD_URL, "_blank", "noopener");
 }
 
 function saveState() {
@@ -1022,7 +1124,7 @@ function saveState() {
   }
 
   updateStorageStatus(
-    `Du lieu da duoc luu tren trinh duyet luc ${new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}.`,
+    `Dữ liệu đã được lưu trên trình duyệt lúc ${new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}.`,
     "muted"
   );
 }
@@ -1032,7 +1134,7 @@ function getCurrentUser() {
 }
 
 function isOwner() {
-  return (getCurrentUser()?.role || "owner") === "owner";
+  return getCurrentUser()?.role === "owner";
 }
 
 function renderAccountList() {
@@ -1041,13 +1143,13 @@ function renderAccountList() {
   accountList.innerHTML = currentUser
     ? `
       <article class="account-item">
-        <h5>${currentUser.fullName}</h5>
-        <p><strong>Email:</strong> ${currentUser.email || currentUser.username || "Chua co email"}</p>
-        <p><strong>Vai tro:</strong> ${roleLabel(currentUser.role)}</p>
-        <p><strong>Quan ly tai khoan:</strong> Supabase Dashboard > Authentication > Users</p>
+        <h5>${escapeHtml(currentUser.fullName)}</h5>
+        <p><strong>Email:</strong> ${escapeHtml(currentUser.email || currentUser.username || "Chưa có email")}</p>
+        <p><strong>Vai trò:</strong> ${roleLabel(currentUser.role)}</p>
+        <p><strong>Quản lý tài khoản:</strong> Supabase Dashboard &gt; Authentication &gt; Users</p>
       </article>
     `
-    : `<article class="account-item"><h5>Chua dang nhap</h5><p>Dang nhap bang tai khoan Supabase de truy cap website.</p></article>`;
+    : `<article class="account-item"><h5>Chưa đăng nhập</h5><p>Đăng nhập bằng tài khoản Supabase để truy cập website.</p></article>`;
 }
 
 function renderAuthState() {
@@ -1060,26 +1162,26 @@ function renderAuthState() {
   window.scrollTo({ top: 0, left: 0, behavior: "auto" });
 
   loginForm.hidden = false;
-  registerForm.hidden = true;
+  registerForm.hidden = false;
 
   if (!currentUser) {
-    currentUserLabel.textContent = "Chua dang nhap";
+    currentUserLabel.textContent = "Chưa đăng nhập";
     accountPanel.hidden = true;
-    authStateCopy.textContent = "Dung email va mat khau da tao trong Supabase Auth de dang nhap vao website.";
-    updateStorageStatus("Hay dang nhap de dong bo du lieu kho len Supabase.", "muted");
+    authStateCopy.textContent = "Dùng email và mật khẩu đã tạo trong Supabase Auth để đăng nhập vào website.";
+    updateStorageStatus("Hãy đăng nhập để đồng bộ dữ liệu kho lên Supabase.", "muted");
     renderAccountList();
     return;
   }
 
-  authStateCopy.textContent = "Website dang duoc dang nhap bang tai khoan Supabase.";
+  authStateCopy.textContent = "Website đang được đăng nhập bằng tài khoản Supabase.";
   currentUserLabel.textContent = `${currentUser.fullName} • ${roleLabel(currentUser.role)}`;
-  accountPanel.hidden = true;
+  accountPanel.hidden = false;
   renderAccountList();
 }
 
 function createOwnerAccount(event) {
   event.preventDefault();
-  window.alert("Ban hay tao tai khoan truoc trong Supabase Dashboard > Authentication > Users.");
+  window.open(SUPABASE_USERS_DASHBOARD_URL, "_blank", "noopener");
 }
 
 async function login(event) {
@@ -1089,16 +1191,16 @@ async function login(event) {
   const password = loginPasswordInput.value.trim();
 
   if (!email || !password) {
-    setAuthMessage("Ban hay nhap day du email va mat khau.", "danger");
+    setAuthMessage("Bạn hãy nhập đầy đủ email và mật khẩu.", "danger");
     return;
   }
 
   if (!supabaseClient) {
-    setAuthMessage("Website chua nap duoc Supabase client.", "danger");
+    setAuthMessage("Website chưa nạp được Supabase client.", "danger");
     return;
   }
 
-  setAuthMessage("Dang kiem tra tai khoan Supabase...", "");
+  setAuthMessage("Đang kiểm tra tài khoản Supabase...", "");
 
   const { data, error } = await supabaseClient.auth.signInWithPassword({
     email,
@@ -1106,7 +1208,7 @@ async function login(event) {
   });
 
   if (error || !data?.user) {
-    setAuthMessage(error?.message || "Dang nhap that bai. Ban hay kiem tra lai email va mat khau.", "danger");
+    setAuthMessage(error?.message || "Đăng nhập thất bại. Bạn hãy kiểm tra lại email và mật khẩu.", "danger");
     return;
   }
 
@@ -1121,7 +1223,7 @@ async function login(event) {
     });
   }
 
-  setAuthMessage(`Dang nhap thanh cong voi tai khoan ${supabaseAuthUser.fullName}.`, "good");
+  setAuthMessage(`Đăng nhập thành công với tài khoản ${supabaseAuthUser.fullName}.`, "good");
   renderAuthState();
   renderAll();
   loginForm.reset();
@@ -1137,12 +1239,7 @@ async function logout() {
   saveState();
   renderAuthState();
   changeScreen("dashboard");
-  setAuthMessage("Ban da dang xuat khoi website noi bo.", "good");
-}
-
-function createManagedAccount(event) {
-  event.preventDefault();
-  window.alert("Ban hay tao them tai khoan trong Supabase Dashboard > Authentication > Users de dam bao bao mat.");
+  setAuthMessage("Bạn đã đăng xuất khỏi website nội bộ.", "good");
 }
 
 async function initializeSupabaseAuth() {
@@ -1185,7 +1282,7 @@ function fillEmployeeErrorOptions() {
     ${state.employeeErrors
       .slice()
       .sort((a, b) => (a.date < b.date ? 1 : -1))
-      .map((entry) => `<option value="${entry.id}">${formatDateDisplay(entry.date)} • ${entry.employeeName} • ${entry.type}</option>`)
+      .map((entry) => `<option value="${escapeAttr(entry.id)}">${escapeHtml(formatDateDisplay(entry.date))} • ${escapeHtml(entry.employeeName)} • ${escapeHtml(entry.type)}</option>`)
       .join("")}
   `;
 
@@ -1241,7 +1338,7 @@ function renderEmployeeErrors() {
     </article>
     <article class="summary-card">
       <h5>Bản ghi gần nhất</h5>
-      <p>${latestEntry ? `${formatDateDisplay(latestEntry.date)} • ${latestEntry.employeeName} • ${latestEntry.type}` : "Chưa có lỗi nào được ghi nhận."}</p>
+      <p>${latestEntry ? `${escapeHtml(formatDateDisplay(latestEntry.date))} • ${escapeHtml(latestEntry.employeeName)} • ${escapeHtml(latestEntry.type)}` : "Chưa có lỗi nào được ghi nhận."}</p>
     </article>
   `;
 
@@ -1250,12 +1347,12 @@ function renderEmployeeErrors() {
     .sort((a, b) => (a.date < b.date ? 1 : -1))
     .map((entry) => `
       <tr>
-        <td>${formatDateDisplay(entry.date)}</td>
-        <td>${entry.employeeName}</td>
-        <td>${entry.area}</td>
-        <td>${entry.type}</td>
-        <td><span class="badge ${entry.status === "Đã sửa xong" ? "good" : entry.status === "Đã nhắc" ? "warning" : "danger"}">${entry.status}</span></td>
-        <td><button type="button" class="link-btn" data-edit-error="${entry.id}">Mở sửa</button></td>
+        <td>${escapeHtml(formatDateDisplay(entry.date))}</td>
+        <td>${escapeHtml(entry.employeeName)}</td>
+        <td>${escapeHtml(entry.area)}</td>
+        <td>${escapeHtml(entry.type)}</td>
+        <td><span class="badge ${entry.status === "Đã sửa xong" ? "good" : entry.status === "Đã nhắc" ? "warning" : "danger"}">${escapeHtml(entry.status)}</span></td>
+        <td><button type="button" class="link-btn" data-edit-error="${escapeAttr(entry.id)}">Mở sửa</button></td>
       </tr>
     `)
     .join("");
@@ -1340,21 +1437,21 @@ function renderCatalog() {
   catalogGrid.innerHTML = state.items
     .map((item) => {
       const purchaseSummary = item.purchaseUnits
-        .map((unit) => `${unit.label}: ${unit.example}`)
+        .map((unit) => `${escapeHtml(unit.label)}: ${escapeHtml(unit.example)}`)
         .join(" | ");
 
       return `
         <article class="catalog-card">
           <div class="catalog-top">
             <div>
-              <h5>${item.name}</h5>
-              <p>${item.category}</p>
+              <h5>${escapeHtml(item.name)}</h5>
+              <p>${escapeHtml(item.category)}</p>
             </div>
-            <span class="catalog-tag">${item.stockUnit}</span>
+            <span class="catalog-tag">${escapeHtml(item.stockUnit)}</span>
           </div>
           <div class="catalog-meta">
             <p><strong>Tồn kho đang theo dõi:</strong> ${formatDisplayQuantity(item.onHand, item.stockUnit)}</p>
-            <p><strong>Đơn vị nhập quen thuộc:</strong> ${item.purchaseUnits.map((unit) => unit.label).join(", ")}</p>
+            <p><strong>Đơn vị nhập quen thuộc:</strong> ${item.purchaseUnits.map((unit) => escapeHtml(unit.label)).join(", ")}</p>
             <p><strong>Ví dụ quy đổi:</strong> ${purchaseSummary}</p>
           </div>
           <div class="meta-row">
@@ -1369,7 +1466,7 @@ function renderCatalog() {
 
 function fillCatalogItemOptions() {
   catalogItemSelect.innerHTML = state.items
-    .map((item) => `<option value="${item.id}">${item.name}</option>`)
+    .map((item) => `<option value="${escapeAttr(item.id)}">${escapeHtml(item.name)}</option>`)
     .join("");
 }
 
@@ -1399,13 +1496,14 @@ function saveCatalogItem(event) {
   item.minLevel = Number(catalogMinLevelInput.value) || 0;
   const weightValue = Number(catalogWeightInput.value) || Number(catalogUnitOneFactorInput.value) || 1;
   const conversionFactor = Number(catalogUnitOneFactorInput.value) || weightValue;
-  item.purchaseUnits = [
+  item.purchaseUnits = normalizePurchaseUnits([
     {
-      label: catalogUnitOneNameInput.value.trim() || "đơn vị 1",
+      label: catalogUnitOneNameInput.value.trim() || item.purchaseUnits[0]?.label || "đơn vị 1",
       factor: conversionFactor,
       example: catalogUnitOneExampleInput.value.trim() || `1 ${catalogUnitOneNameInput.value.trim() || "đơn vị"} = ${formatNumber(weightValue)}g`
-    }
-  ];
+    },
+    ...(item.purchaseUnits.slice(1) || [])
+  ]);
 
   const now = new Date();
   const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
@@ -1417,8 +1515,12 @@ function saveCatalogItem(event) {
   });
 
   fillCatalogItemOptions();
+  fillPurchaseItemOptions();
+  fillRecipeItemOptions();
   catalogItemSelect.value = item.id;
+  purchaseItemSelect.value = item.id;
   populateCatalogForm();
+  updatePurchaseUnits();
   saveState();
   renderAll();
 }
@@ -1427,6 +1529,12 @@ function deleteCatalogItem() {
   const itemId = catalogItemSelect.value;
   const item = findItem(itemId);
   if (!item || state.items.length === 1) return;
+  const hasPurchaseHistory = state.purchaseLog.some((entry) => entry.itemId === itemId);
+  const usedInRecipes = state.recipeDefinitions.some((recipe) => recipe.ingredients.some((ingredient) => ingredient.itemId === itemId));
+  if (hasPurchaseHistory || usedInRecipes) {
+    window.alert("Mặt hàng này đang có lịch sử nhập hàng hoặc đang được dùng trong công thức món nên chưa thể xóa. Bạn hãy ngưng dùng hoặc dọn dữ liệu phụ thuộc trước.");
+    return;
+  }
   if (!window.confirm(`Bạn có chắc muốn xóa mặt hàng "${item.name}" không?`)) return;
 
   state.items = state.items.filter((entry) => entry.id !== itemId);
@@ -1449,7 +1557,7 @@ function deleteCatalogItem() {
     time,
     actor: actorLabel("Quản lý"),
     title: `Xóa mặt hàng ${item.name}`,
-    detail: "Đã xóa mặt hàng này khỏi danh mục và làm sạch dữ liệu liên quan."
+    detail: "Đã xóa mặt hàng này khỏi danh mục vận hành sau khi xác nhận không còn dữ liệu phụ thuộc."
   });
 
   fillCatalogItemOptions();
@@ -1496,7 +1604,7 @@ function renderDashboard() {
       label: "Bán trong ngày",
       value: `${formatNumber(totalSoldQuantity)}`,
       meta: "Bấm để cập nhật món bán và tự trừ kho",
-      action: "sales-panel"
+      action: "pos"
     },
     {
       label: "Lỗi nhân viên cần xem",
@@ -1506,17 +1614,29 @@ function renderDashboard() {
     }
   ];
 
+  const statDecor = [
+    { icon: "inventory_2", tone: "secondary" },
+    { icon: "warning", tone: "warning" },
+    { icon: "rule", tone: "danger" },
+    { icon: "point_of_sale", tone: "success" },
+    { icon: "person_alert", tone: "secondary" }
+  ];
+
   dashboardStats.innerHTML = stats
-    .map(
-      (stat) => `
-        <${stat.action ? "button" : "article"} class="stat-card ${stat.action ? "action-card" : ""}" ${stat.action ? `type="button" data-dashboard-action="${stat.action}"` : ""}>
-          <p class="stat-label">${stat.label}</p>
+    .map((stat, index) => {
+      const decor = statDecor[index] || { icon: "insights", tone: "secondary" };
+      return `
+        <${stat.action ? "button" : "article"} class="stat-card stat-tone-${decor.tone} ${stat.action ? "action-card" : ""}" ${stat.action ? `type="button" data-dashboard-action="${stat.action}"` : ""}>
+          <div class="stat-top">
+            <p class="stat-label">${stat.label}</p>
+            <span class="stat-icon material-symbols-outlined">${decor.icon}</span>
+          </div>
           <p class="stat-value">${stat.value}</p>
           <p class="stat-meta">${stat.meta}</p>
           ${stat.action ? `<span class="stat-hint">Mở chi tiết</span>` : ""}
         </${stat.action ? "button" : "article"}>
-      `
-    )
+      `;
+    })
     .join("");
 
   [...dashboardStats.querySelectorAll("[data-dashboard-action]")].forEach((button) => {
@@ -1524,8 +1644,8 @@ function renderDashboard() {
       if (button.dataset.dashboardAction === "employee-errors") {
         changeScreen("dashboard", { showEmployeeErrors: true, activeNav: "dashboard" });
       }
-      if (button.dataset.dashboardAction === "sales-panel") {
-        changeScreen("dashboard", { showSalesPanel: true, activeNav: "dashboard" });
+      if (button.dataset.dashboardAction === "pos") {
+        changeScreen("pos");
       }
     });
   });
@@ -1565,7 +1685,7 @@ function renderDashboard() {
 
 function fillPurchaseItemOptions() {
   purchaseItemSelect.innerHTML = state.items
-    .map((item) => `<option value="${item.id}">${item.name}</option>`)
+    .map((item) => `<option value="${escapeAttr(item.id)}">${escapeHtml(item.name)}</option>`)
     .join("");
 }
 
@@ -1587,7 +1707,7 @@ function fillRecipeItemOptions() {
 
 function ingredientOptions(selectedValue = "") {
   return state.items
-    .map((item) => `<option value="${item.id}" ${item.id === selectedValue ? "selected" : ""}>${item.name}</option>`)
+    .map((item) => `<option value="${escapeAttr(item.id)}" ${item.id === selectedValue ? "selected" : ""}>${escapeHtml(item.name)}</option>`)
     .join("");
 }
 
@@ -1633,7 +1753,7 @@ function updatePurchaseUnits() {
   if (!item) return;
 
   purchaseUnitSelect.innerHTML = item.purchaseUnits
-    .map((unit) => `<option value="${unit.label}">${unit.label}</option>`)
+    .map((unit) => `<option value="${escapeAttr(unit.label)}">${escapeHtml(unit.label)}</option>`)
     .join("");
 
   renderConversionPreview();
@@ -1654,7 +1774,7 @@ function renderConversionPreview() {
     : `${quantity} ${selectedUnit.label} = ${formatDisplayQuantity(converted, item.stockUnit)}`;
   const helperText = customWeight > 0
     ? "Bạn đã nhập khối lượng thực tế, nên hệ thống sẽ ưu tiên dùng số này để cộng kho."
-    : `Nhân viên nhập theo đơn vị quen thuộc, hệ thống tự cộng vào tồn kho chuẩn của ${item.name}.`;
+    : `Nhân viên nhập theo đơn vị quen thuộc, hệ thống tự cộng vào tồn kho chuẩn của ${escapeHtml(item.name)}.`;
 
   conversionPreview.innerHTML = `
     <div class="conversion-main">
@@ -1686,10 +1806,20 @@ function renderConversionPreview() {
   `;
 }
 
+function getLatestPurchaseDate() {
+  if (!state.purchaseLog.length) {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  return state.purchaseLog
+    .slice()
+    .sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`))[0].date;
+}
+
 function renderPurchaseLog() {
-  const selectedDate = purchaseHistoryDateInput.value || "2026-03-20";
+  const selectedDate = purchaseHistoryDateInput.value || getLatestPurchaseDate();
   const filteredEntries = state.purchaseLog.filter((entry) => entry.date === selectedDate);
-  const totalConverted = filteredEntries.reduce((sum, entry) => sum + entry.quantity * entry.factor, 0);
+  const totalConverted = filteredEntries.reduce((sum, entry) => sum + getPurchaseLogConverted(entry), 0);
 
   purchaseHistorySummary.innerHTML = filteredEntries.length > 0
     ? `Ngày ${formatDateDisplay(selectedDate)} có <strong>${filteredEntries.length}</strong> phiếu nhập, tổng cộng <strong>${formatDisplayQuantity(totalConverted, "g")}</strong>.`
@@ -1700,16 +1830,18 @@ function renderPurchaseLog() {
     .reverse()
     .map((entry) => {
       const item = findItem(entry.itemId);
-      const converted = entry.quantity * entry.factor;
+      const itemName = item?.name || "Mặt hàng đã xóa";
+      const stockUnit = item?.stockUnit || "g";
+      const converted = getPurchaseLogConverted(entry);
       return `
         <tr>
-          <td>${formatDateDisplay(entry.date)}</td>
-          <td>${entry.time}</td>
-          <td>${item.name}</td>
-          <td>${entry.quantity} ${entry.unit}</td>
-          <td>${formatDisplayQuantity(converted, item.stockUnit)}</td>
+          <td>${escapeHtml(formatDateDisplay(entry.date))}</td>
+          <td>${escapeHtml(entry.time)}</td>
+          <td>${escapeHtml(itemName)}</td>
+          <td>${escapeHtml(formatNumber(entry.quantity))} ${escapeHtml(entry.unit)}</td>
+          <td>${formatDisplayQuantity(converted, stockUnit)}</td>
           <td>${formatCurrency(entry.price)}</td>
-          <td>${entry.supplier}</td>
+          <td>${escapeHtml(entry.supplier)}</td>
         </tr>
       `;
     })
@@ -1722,16 +1854,24 @@ function renderRecipePreview() {
 
   recipePreview.innerHTML = `
     <div class="conversion-main">
-      <strong>${recipeNameInput.value || "Món mới"}</strong>
+      <strong>${escapeHtml(recipeNameInput.value || "Món mới")}</strong>
       <p>Đây là phần xem nhanh món này sẽ dùng nguyên liệu gì cho mỗi phần bán ra.</p>
     </div>
     <div class="conversion-steps">
       ${ingredients
         .map((ingredient) => {
           const item = findItem(ingredient.itemId);
+          if (!item) {
+            return `
+              <div class="conversion-step">
+                <strong>Nguyên liệu đã bị xóa</strong>
+                <p>Công thức này đang tham chiếu tới một mặt hàng không còn trong danh mục.</p>
+              </div>
+            `;
+          }
           return `
             <div class="conversion-step">
-              <strong>${item.name}</strong>
+              <strong>${escapeHtml(item.name)}</strong>
               <p>Dùng ${formatDisplayQuantity(ingredient.amount, item.stockUnit)} cho 1 phần.</p>
               <p>Nếu bán ${salesQuantity} phần thì sẽ trừ ${formatDisplayQuantity(ingredient.amount * salesQuantity, item.stockUnit)}.</p>
             </div>
@@ -1745,27 +1885,32 @@ function renderRecipePreview() {
 function renderRecipeTable() {
   recipeTable.innerHTML = state.recipeDefinitions
     .map((recipe) => {
-      const ingredientText = recipe.ingredients
+      const validIngredients = recipe.ingredients
         .map((ingredient) => {
           const item = findItem(ingredient.itemId);
-          return `${item.name}: ${formatDisplayQuantity(ingredient.amount, item.stockUnit)}`;
+          return item ? { ingredient, item } : null;
         })
-        .join(" | ");
+        .filter(Boolean);
 
-      const deductedText = recipe.ingredients
+      const ingredientText = validIngredients
         .map((ingredient) => {
-          const item = findItem(ingredient.itemId);
-          return `${item.name}: ${formatDisplayQuantity(ingredient.amount * recipe.sampleSalesQuantity, item.stockUnit)}`;
+          return `${escapeHtml(ingredient.item.name)}: ${formatDisplayQuantity(ingredient.ingredient.amount, ingredient.item.stockUnit)}`;
         })
-        .join(" | ");
+        .join(" | ") || "Chưa có nguyên liệu hợp lệ";
+
+      const deductedText = validIngredients
+        .map((ingredient) => {
+          return `${escapeHtml(ingredient.item.name)}: ${formatDisplayQuantity(ingredient.ingredient.amount * recipe.sampleSalesQuantity, ingredient.item.stockUnit)}`;
+        })
+        .join(" | ") || "Chưa có dữ liệu khấu trừ";
 
       return `
         <tr>
-          <td>${recipe.name}</td>
+          <td>${escapeHtml(recipe.name)}</td>
           <td>${ingredientText}</td>
           <td>${formatNumber(recipe.sampleSalesQuantity)} phần</td>
           <td>${deductedText}</td>
-          <td><button type="button" class="danger-btn" data-delete-recipe="${recipe.id}">Xóa món</button></td>
+          <td><button type="button" class="danger-btn" data-delete-recipe="${escapeAttr(recipe.id)}">Xóa món</button></td>
         </tr>
       `;
     })
@@ -1785,13 +1930,13 @@ function renderCountTable() {
       const meta = varianceMeta(item.onHand, entry.actual, item.stockUnit);
       return `
         <tr>
-          <td>${item.name}</td>
+          <td>${escapeHtml(item.name)}</td>
           <td>${formatDisplayQuantity(item.onHand, item.stockUnit)}</td>
           <td>
-            <input class="count-input" type="number" min="0" step="1" value="${entry.actual}" data-count-input="${entry.itemId}">
+            <input class="count-input" type="number" min="0" step="1" value="${escapeAttr(entry.actual)}" data-count-input="${escapeAttr(entry.itemId)}">
           </td>
-          <td data-variance-text="${entry.itemId}">${meta.diffText}</td>
-          <td><span class="badge ${meta.badgeClass}" data-variance-badge="${entry.itemId}">${meta.label}</span></td>
+          <td data-variance-text="${escapeAttr(entry.itemId)}">${meta.diffText}</td>
+          <td><span class="badge ${meta.badgeClass}" data-variance-badge="${escapeAttr(entry.itemId)}">${escapeHtml(meta.label)}</span></td>
         </tr>
       `;
     })
@@ -1835,7 +1980,7 @@ function renderReport() {
     .map(
       (item) => `
         <article class="mini-card">
-          <h5>${item.name}</h5>
+          <h5>${escapeHtml(item.name)}</h5>
           <p>Tồn hiện tại: <strong>${formatDisplayQuantity(item.onHand, item.stockUnit)}</strong></p>
           <p>Mức cảnh báo: ${formatDisplayQuantity(item.minLevel, item.stockUnit)}</p>
         </article>
@@ -1848,7 +1993,7 @@ function renderReport() {
     .map(
       (item) => `
         <article class="mini-card">
-          <h5>${item.name}</h5>
+          <h5>${escapeHtml(item.name)}</h5>
           <p>Tồn hiện tại: <strong>${formatDisplayQuantity(item.onHand, item.stockUnit)}</strong></p>
           <p>Số lượng này đang ở mức an toàn để tiếp tục bán.</p>
         </article>
@@ -1866,6 +2011,7 @@ function getConsumptionSummary() {
     const appliedQuantity = Number(sale.appliedQuantity) || 0;
 
     ingredients.forEach((ingredient) => {
+      if (!findItem(ingredient.itemId)) return;
       const current = totals.get(ingredient.itemId) || 0;
       totals.set(ingredient.itemId, current + ingredient.amount * appliedQuantity);
     });
@@ -1874,16 +2020,80 @@ function getConsumptionSummary() {
   return [...totals.entries()].map(([itemId, amount]) => ({ itemId, amount }));
 }
 
+function getPendingSaleQuantity(saleId, fallback = 0) {
+  const input = document.querySelector(`[data-sales-quantity="${saleId}"]`);
+  return input ? (Number(input.value) || 0) : fallback;
+}
+
+function renderPosProductGrid() {
+  if (!posProductGrid) return;
+
+  posProductGrid.innerHTML = state.dailySales
+    .map((sale) => {
+      const pendingQuantity = getPendingSaleQuantity(sale.id, Number(sale.quantity) || 0);
+      const appliedQuantity = Number(sale.appliedQuantity) || 0;
+      return `
+        <article class="pos-product-card">
+          <div class="pos-product-top">
+            <div>
+              <p class="panel-label">POS item</p>
+              <h5>${escapeHtml(sale.name)}</h5>
+            </div>
+            <span class="badge ${pendingQuantity === appliedQuantity ? "good" : "warning"}">${pendingQuantity === appliedQuantity ? "Đã sync" : "Chờ lưu"}</span>
+          </div>
+          <p class="pos-product-note">${escapeHtml(sale.note || "Chưa có ghi chú cho món này.")}</p>
+          <div class="pos-product-footer">
+            <div>
+              <div class="pos-product-price">${formatCurrency(Number(sale.price) || 0)}</div>
+              <p class="stat-meta">Đã trừ kho theo ${formatNumber(appliedQuantity)} món</p>
+            </div>
+            <span class="pos-product-qty">${formatNumber(pendingQuantity)}</span>
+          </div>
+          <div class="pos-product-quick-actions">
+            <button type="button" class="pos-quick-btn" data-pos-adjust="${escapeAttr(sale.id)}" data-pos-step="-1">−</button>
+            <button type="button" class="secondary-btn" data-pos-focus="${escapeAttr(sale.id)}">Mở chi tiết</button>
+            <button type="button" class="pos-quick-btn" data-pos-adjust="${escapeAttr(sale.id)}" data-pos-step="1">+</button>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+
+  [...posProductGrid.querySelectorAll("[data-pos-adjust]")].forEach((button) => {
+    button.addEventListener("click", () => {
+      const saleId = button.dataset.posAdjust;
+      const step = Number(button.dataset.posStep) || 0;
+      const input = document.querySelector(`[data-sales-quantity="${saleId}"]`);
+      if (!input) return;
+      const nextValue = Math.max(0, (Number(input.value) || 0) + step);
+      input.value = nextValue;
+      setSalesSyncStatus("Đã cập nhật nhanh số lượng trên thẻ POS. Bạn hãy bấm lưu để trừ kho chính thức.", "warning");
+      renderPosProductGrid();
+    });
+  });
+
+  [...posProductGrid.querySelectorAll("[data-pos-focus]")].forEach((button) => {
+    button.addEventListener("click", () => {
+      const saleId = button.dataset.posFocus;
+      const targetInput = document.querySelector(`[data-sales-quantity="${saleId}"]`);
+      if (targetInput) {
+        targetInput.scrollIntoView({ behavior: "smooth", block: "center" });
+        targetInput.focus();
+      }
+    });
+  });
+}
+
 function renderSalesStats() {
   salesTable.innerHTML = state.dailySales
     .map((sale) => `
       <tr>
-        <td>${sale.name}</td>
-        <td><input class="count-input sales-inline-input" type="number" min="0" step="1" value="${sale.quantity}" data-sales-quantity="${sale.id}"></td>
+        <td>${escapeHtml(sale.name)}</td>
+        <td><input class="count-input sales-inline-input" type="number" min="0" step="1" value="${escapeAttr(sale.quantity)}" data-sales-quantity="${escapeAttr(sale.id)}"></td>
         <td>${formatNumber(sale.appliedQuantity || 0)} món</td>
         <td>${formatCurrency(sale.price)}</td>
         <td>${formatCurrency(sale.quantity * sale.price)}</td>
-        <td><input class="count-input sales-note-input" type="text" value="${sale.note || ""}" data-sales-note="${sale.id}"></td>
+        <td><input class="count-input sales-note-input" type="text" value="${escapeAttr(sale.note || "")}" data-sales-note="${escapeAttr(sale.id)}"></td>
       </tr>
     `)
     .join("");
@@ -1893,10 +2103,11 @@ function renderSalesStats() {
   consumptionTable.innerHTML = consumptionSummary
     .map(({ itemId, amount }) => {
       const item = findItem(itemId);
+      if (!item) return "";
       const remain = item.onHand - amount;
       return `
         <tr>
-          <td>${item.name}</td>
+          <td>${escapeHtml(item.name)}</td>
           <td>${formatDisplayQuantity(amount, item.stockUnit)}</td>
           <td>${formatDisplayQuantity(item.onHand, item.stockUnit)}</td>
           <td>${formatDisplayQuantity(remain, item.stockUnit)}</td>
@@ -1911,6 +2122,12 @@ function renderSalesStats() {
     `Hôm nay đang ghi ${formatNumber(totalSales)} món bán ra. Kho hiện đã được khấu trừ theo ${formatNumber(totalAppliedSales)} món đã lưu.`,
     totalSales === totalAppliedSales ? "good" : ""
   );
+
+  [...document.querySelectorAll("[data-sales-quantity], [data-sales-note]")].forEach((input) => {
+    input.addEventListener("input", () => {
+      renderPosProductGrid();
+    });
+  });
 }
 
 function saveDailySalesUpdates() {
@@ -2186,9 +2403,9 @@ function renderHistory() {
     .map(
       (event) => `
         <article class="timeline-item">
-          <p class="timeline-meta">${event.time} • ${event.actor}</p>
-          <h5>${event.title}</h5>
-          <p>${event.detail}</p>
+          <p class="timeline-meta">${escapeHtml(event.time)} • ${escapeHtml(event.actor)}</p>
+          <h5>${escapeHtml(event.title)}</h5>
+          <p>${escapeHtml(event.detail)}</p>
         </article>
       `
     )
@@ -2196,8 +2413,12 @@ function renderHistory() {
 }
 
 function changeScreen(screenName, options = {}) {
-  const effectiveScreen = screenName === "employee-errors" ? "dashboard" : screenName;
-  const activeNav = options.activeNav || (screenName === "employee-errors" ? "dashboard" : screenName);
+  const effectiveScreen = options.showSalesPanel
+    ? "pos"
+    : screenName === "employee-errors"
+      ? "dashboard"
+      : screenName;
+  const activeNav = options.activeNav || effectiveScreen;
 
   navButtons.forEach((button) => {
     button.classList.toggle("is-active", button.dataset.screen === activeNav);
@@ -2208,28 +2429,26 @@ function changeScreen(screenName, options = {}) {
   });
 
   const shouldShowErrors = screenName === "employee-errors" || options.showEmployeeErrors;
-  const shouldShowSales = options.showSalesPanel;
 
   if (shouldShowErrors) {
     showDashboardErrors(options.scrollToErrors !== false);
-    hideDashboardSales();
-    return;
-  }
-
-  if (shouldShowSales) {
-    showDashboardSales(options.scrollToSales !== false);
-    hideDashboardErrors();
     return;
   }
 
   hideDashboardErrors();
-  hideDashboardSales();
+  if (effectiveScreen === "pos" && options.scrollToSales !== false && dashboardSalesPanel) {
+    dashboardSalesPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 }
 
 function addPurchaseEntry(event) {
   event.preventDefault();
 
   const item = findItem(purchaseItemSelect.value);
+  if (!item) {
+    window.alert("Mặt hàng này không còn trong danh mục. Bạn hãy chọn lại trước khi lưu phiếu nhập.");
+    return;
+  }
   const selectedUnit = item.purchaseUnits.find((unit) => unit.label === purchaseUnitSelect.value) || item.purchaseUnits[0];
   const quantity = Number(purchaseQuantityInput.value) || 0;
   const price = Number(purchasePriceInput.value) || 0;
@@ -2249,6 +2468,8 @@ function addPurchaseEntry(event) {
     unit: selectedUnit.label,
     quantity,
     factor: selectedUnit.factor,
+    converted,
+    actualWeight: customWeight > 0 ? customWeight : null,
     price,
     supplier
   });
@@ -2288,8 +2509,8 @@ function approveAdjustments() {
 
   countSnapshotStatus = {
     message: changedCount > 0
-      ? `Da duyet dieu chinh kho luc ${time}. ${changedCount} mat hang da duoc cap nhat theo ton thuc te.`
-      : `Khong co mat hang nao can dieu chinh luc ${time}.`,
+      ? `Đã duyệt điều chỉnh kho lúc ${time}. ${changedCount} mặt hàng đã được cập nhật theo tồn thực tế.`
+      : `Không có mặt hàng nào cần điều chỉnh lúc ${time}.`,
     tone: changedCount > 0 ? "good" : "muted",
     dirty: false
   };
@@ -2305,17 +2526,17 @@ function saveCountSnapshot() {
 
   state.historyEvents.push({
     time,
-    actor: actorLabel("NhÃ¢n viÃªn kiá»ƒm kho"),
-    title: "LÆ°u tá»“n thá»±c táº¿ kiá»ƒm kho",
+    actor: actorLabel("Nhân viên kiểm kho"),
+    title: "Lưu tồn thực tế kiểm kho",
     detail: varianceCount > 0
-      ? `Da luu ban kiem kho co ${varianceCount} mat hang dang lech so voi ton he thong.`
-      : "Da luu ban kiem kho va tat ca mat hang dang khop voi ton he thong."
+      ? `Đã lưu bản kiểm kho có ${varianceCount} mặt hàng đang lệch so với tồn hệ thống.`
+      : "Đã lưu bản kiểm kho và tất cả mặt hàng đang khớp với tồn hệ thống."
   });
 
   countSnapshotStatus = {
     message: varianceCount > 0
-      ? `Da luu ton thuc te luc ${time}. Dang co ${varianceCount} mat hang lech kho cho quan ly xem va duyet.`
-      : `Da luu ton thuc te luc ${time}. Tat ca mat hang dang khop voi ton he thong.`,
+      ? `Đã lưu tồn thực tế lúc ${time}. Đang có ${varianceCount} mặt hàng lệch kho chờ quản lý xem và duyệt.`
+      : `Đã lưu tồn thực tế lúc ${time}. Tất cả mặt hàng đang khớp với tồn hệ thống.`,
     tone: varianceCount > 0 ? "warning" : "good",
     dirty: false
   };
@@ -2325,6 +2546,187 @@ function saveCountSnapshot() {
   renderReport();
   renderHistory();
   renderCountTable();
+}
+
+function renderDashboard() {
+  const dashboardPerformance = document.getElementById("dashboard-performance");
+  const dashboardTopList = document.getElementById("dashboard-top-list");
+  const lowStockItems = state.items.filter((item) => item.onHand <= item.minLevel);
+  const countVarianceItems = state.countEntries.filter((entry) => {
+    const item = findItem(entry.itemId);
+    return item && entry.actual !== item.onHand;
+  });
+  const unresolvedEmployeeErrors = state.employeeErrors.filter((entry) => entry.status !== "Đã sửa xong");
+  const totalSoldQuantity = state.dailySales.reduce((sum, sale) => sum + (Number(sale.quantity) || 0), 0);
+  const totalRevenue = state.dailySales.reduce((sum, sale) => sum + ((Number(sale.quantity) || 0) * (Number(sale.price) || 0)), 0);
+
+  const stats = [
+    {
+      label: "Tổng mặt hàng đang theo dõi",
+      value: `${state.items.length}`,
+      meta: "Bao gồm nguyên liệu, đông lạnh và bao bì"
+    },
+    {
+      label: "Mặt hàng sắp hết",
+      value: `${lowStockItems.length}`,
+      meta: "Nên xem để nhập thêm"
+    },
+    {
+      label: "Dòng chênh lệch kiểm kho",
+      value: `${countVarianceItems.length}`,
+      meta: "Cần quản lý xem và duyệt"
+    },
+    {
+      label: "Bán trong ngày",
+      value: `${formatNumber(totalSoldQuantity)}`,
+      meta: "Bấm để cập nhật món bán và tự trừ kho",
+      action: "pos"
+    },
+    {
+      label: "Lỗi nhân viên cần xem",
+      value: `${unresolvedEmployeeErrors.length}`,
+      meta: "Bấm để xem lịch sử lỗi và chỉnh sửa ngay trong tổng quan",
+      action: "employee-errors"
+    }
+  ];
+
+  const statDecor = [
+    { icon: "inventory_2", tone: "secondary" },
+    { icon: "warning", tone: "warning" },
+    { icon: "rule", tone: "danger" },
+    { icon: "point_of_sale", tone: "success" },
+    { icon: "person_alert", tone: "secondary" }
+  ];
+
+  dashboardStats.innerHTML = stats
+    .map((stat, index) => {
+      const decor = statDecor[index] || { icon: "insights", tone: "secondary" };
+      return `
+        <${stat.action ? "button" : "article"} class="stat-card stat-tone-${decor.tone} ${stat.action ? "action-card" : ""}" ${stat.action ? `type="button" data-dashboard-action="${stat.action}"` : ""}>
+          <div class="stat-top">
+            <p class="stat-label">${stat.label}</p>
+            <span class="stat-icon material-symbols-outlined">${decor.icon}</span>
+          </div>
+          <p class="stat-value">${stat.value}</p>
+          <p class="stat-meta">${stat.meta}</p>
+          ${stat.action ? `<span class="stat-hint">Mở chi tiết</span>` : ""}
+        </${stat.action ? "button" : "article"}>
+      `;
+    })
+    .join("");
+
+  [...dashboardStats.querySelectorAll("[data-dashboard-action]")].forEach((button) => {
+    button.addEventListener("click", () => {
+      if (button.dataset.dashboardAction === "employee-errors") {
+        changeScreen("dashboard", { showEmployeeErrors: true, activeNav: "dashboard" });
+      }
+      if (button.dataset.dashboardAction === "pos") {
+        changeScreen("pos");
+      }
+    });
+  });
+
+  if (dashboardPerformance) {
+    const metrics = [
+      {
+        label: "Doanh thu hôm nay",
+        value: formatCurrency(totalRevenue),
+        detail: `${formatNumber(totalSoldQuantity)} món đã chốt`
+      },
+      {
+        label: "Điểm lệch cần duyệt",
+        value: `${countVarianceItems.length}`,
+        detail: `${lowStockItems.length} mặt hàng sắp hết`
+      },
+      {
+        label: "Lỗi nhân viên mở",
+        value: `${unresolvedEmployeeErrors.length}`,
+        detail: "Theo dõi ngay trong dashboard"
+      }
+    ];
+
+    dashboardPerformance.innerHTML = metrics
+      .map((metric) => `
+        <article class="metric-card">
+          <p class="stat-label">${metric.label}</p>
+          <strong>${metric.value}</strong>
+          <p class="stat-meta">${metric.detail}</p>
+        </article>
+      `)
+      .join("");
+  }
+
+  if (dashboardTopList) {
+    const topSales = state.dailySales
+      .slice()
+      .sort((a, b) => (Number(b.quantity) || 0) - (Number(a.quantity) || 0))
+      .slice(0, 4);
+    const maxQuantity = topSales.length ? Math.max(...topSales.map((sale) => Number(sale.quantity) || 0), 1) : 1;
+
+    dashboardTopList.innerHTML = topSales.length
+      ? topSales
+          .map((sale) => {
+            const quantity = Number(sale.quantity) || 0;
+            const width = Math.max(16, Math.round((quantity / maxQuantity) * 100));
+            return `
+              <article class="side-feed-item">
+                <div class="side-feed-top">
+                  <div>
+                    <h5>${escapeHtml(sale.name)}</h5>
+                    <p>${formatCurrency((Number(sale.price) || 0) * quantity)}</p>
+                  </div>
+                  <span class="side-feed-value">${formatNumber(quantity)}</span>
+                </div>
+                <div class="side-progress"><span style="width:${width}%"></span></div>
+              </article>
+            `;
+          })
+          .join("")
+      : `
+        <article class="side-feed-item">
+          <h5>Chưa có món bán</h5>
+          <p>Hãy cập nhật bán trong ngày để hệ thống hiển thị danh sách món bán mạnh.</p>
+        </article>
+      `;
+  }
+
+  const alerts = [
+    ...lowStockItems.map((item) => ({
+      title: `${item.name} đang sắp hết`,
+      detail: `Tồn hiện tại ${formatDisplayQuantity(item.onHand, item.stockUnit)}, mức cảnh báo ${formatDisplayQuantity(item.minLevel, item.stockUnit)}.`,
+      tag: "Nên nhập thêm",
+      tone: "warning"
+    })),
+    ...countVarianceItems.slice(0, 3).map((entry) => {
+      const item = findItem(entry.itemId);
+      const meta = varianceMeta(item.onHand, entry.actual, item.stockUnit);
+      return {
+        title: `${item.name} đang lệch kho`,
+        detail: `Hệ thống ${formatDisplayQuantity(item.onHand, item.stockUnit)}, thực tế ${formatDisplayQuantity(entry.actual, item.stockUnit)}.`,
+        tag: meta.diffText,
+        tone: "danger"
+      };
+    })
+  ];
+
+  dashboardAlerts.innerHTML = alerts.length
+    ? alerts
+        .map((alert) => `
+          <article class="side-feed-item">
+            <div class="side-feed-top">
+              <h5>${escapeHtml(alert.title)}</h5>
+              <span class="badge ${alert.tone}">${alert.tag}</span>
+            </div>
+            <p>${escapeHtml(alert.detail)}</p>
+          </article>
+        `)
+        .join("")
+    : `
+      <article class="side-feed-item">
+        <h5>Kho đang ổn định</h5>
+        <p>Hiện chưa có mặt hàng nào sắp hết hoặc lệch so với kiểm kho cuối ngày.</p>
+      </article>
+    `;
 }
 
 function renderAll() {
@@ -2338,6 +2740,7 @@ function renderAll() {
   renderRecipeTable();
   renderCountTable();
   renderSalesStats();
+  renderPosProductGrid();
   renderEmployeeErrors();
   renderReport();
   renderHistory();
@@ -2391,7 +2794,7 @@ addIngredientRowButton.addEventListener("click", () => {
 fillPurchaseItemOptions();
 fillRecipeItemOptions();
 updatePurchaseUnits();
-purchaseHistoryDateInput.value = state.purchaseLog[0]?.date || "2026-03-20";
+purchaseHistoryDateInput.value = getLatestPurchaseDate();
 populateCatalogForm();
 resetEmployeeErrorForm();
 saveState();
