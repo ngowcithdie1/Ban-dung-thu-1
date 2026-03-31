@@ -501,8 +501,8 @@ function buildPersistedState() {
 function normalizeDailySales(dailySales = []) {
   return dailySales.map((sale) => ({
     ...sale,
-    quantity: Number(sale.quantity) || 0,
-    appliedQuantity: Number(sale.appliedQuantity) || 0,
+    quantity: normalizeSaleQuantity(sale.quantity),
+    appliedQuantity: normalizeSaleQuantity(sale.appliedQuantity),
     price: Number(sale.price) || 0,
     note: sale.note || ""
   }));
@@ -553,6 +553,7 @@ function loadState() {
 }
 
 const state = loadState();
+let currentPosCategory = "Tất cả";
 
 const authShell = document.getElementById("auth-shell");
 const appShell = document.getElementById("app-shell");
@@ -605,6 +606,10 @@ const consumptionTable = document.getElementById("consumption-table");
 const salesSyncStatus = document.getElementById("sales-sync-status");
 const saveSalesUpdatesButton = document.getElementById("save-sales-updates");
 const posProductGrid = document.getElementById("pos-product-grid");
+const posCategoryFilters = document.getElementById("pos-category-filters");
+const posProductCount = document.getElementById("pos-product-count");
+const posTicketSummary = document.getElementById("pos-ticket-summary");
+const posTicketBadge = document.getElementById("pos-ticket-badge");
 const lowStockList = document.getElementById("low-stock-list");
 const healthyStockList = document.getElementById("healthy-stock-list");
 const historyList = document.getElementById("history-list");
@@ -837,11 +842,15 @@ function setSalesSyncStatus(message, tone = "") {
   salesSyncStatus.textContent = message;
   salesSyncStatus.style.color = tone === "danger"
     ? "var(--danger)"
+    : tone === "warning"
+      ? "var(--warning)"
     : tone === "good"
       ? "var(--good)"
       : "var(--muted)";
   salesSyncStatus.style.borderColor = tone === "danger"
     ? "#e7c0bc"
+    : tone === "warning"
+      ? "rgba(255, 193, 112, 0.24)"
     : tone === "good"
       ? "#cde5d7"
       : "var(--line)";
@@ -2002,130 +2011,345 @@ function renderReport() {
     .join("");
 }
 
-function getConsumptionSummary() {
+function inferPosSaleCategory(saleName = "") {
+  if (/mì|indomie|mi tron/i.test(saleName)) return "Mì";
+  if (/xiên|xien/i.test(saleName)) return "Xiên";
+  if (/viên|vien/i.test(saleName)) return "Viên";
+  if (/combo/i.test(saleName)) return "Combo";
+  return "Khác";
+}
+
+function getPosVisualMeta(sale) {
+  const categoryLabel = inferPosSaleCategory(sale.name);
+  switch (categoryLabel) {
+    case "Mì":
+      return { categoryLabel, themeClass: "pos-theme-mi", icon: "ramen_dining" };
+    case "Xiên":
+      return { categoryLabel, themeClass: "pos-theme-xien", icon: "restaurant_menu" };
+    case "Viên":
+      return { categoryLabel, themeClass: "pos-theme-vien", icon: "set_meal" };
+    case "Combo":
+      return { categoryLabel, themeClass: "pos-theme-combo", icon: "fastfood" };
+    default:
+      return { categoryLabel, themeClass: "pos-theme-khac", icon: "restaurant" };
+  }
+}
+
+function normalizeSaleQuantity(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return 0;
+  return Math.max(0, Math.trunc(numeric));
+}
+
+function getPendingSaleQuantity(saleId, fallback = 0) {
+  const input = document.querySelector(`[data-sales-quantity="${saleId}"]`);
+  return input ? normalizeSaleQuantity(input.value) : normalizeSaleQuantity(fallback);
+}
+
+function getPosDraftSnapshot() {
+  return state.dailySales.map((sale) => {
+    const noteInput = document.querySelector(`[data-sales-note="${sale.id}"]`);
+    const draftQuantity = getPendingSaleQuantity(sale.id, Number(sale.quantity) || 0);
+    const draftNote = noteInput ? noteInput.value.trim() : (sale.note || "");
+    const appliedQuantity = Number(sale.appliedQuantity) || 0;
+    const price = Number(sale.price) || 0;
+    return {
+      ...sale,
+      ...getPosVisualMeta(sale),
+      draftQuantity,
+      draftNote,
+      appliedQuantity,
+      price,
+      draftRevenue: draftQuantity * price,
+      isDirty: draftQuantity !== appliedQuantity || draftNote !== (sale.note || "")
+    };
+  });
+}
+
+function getConsumptionSummary(options = {}) {
+  const useDraft = Boolean(options.useDraft);
+  const snapshot = Array.isArray(options.snapshot) ? options.snapshot : getPosDraftSnapshot();
   const totals = new Map();
 
-  state.dailySales.forEach((sale) => {
-    const recipe = state.recipeDefinitions.find((recipeItem) => recipeItem.id === sale.id);
+  snapshot.forEach((entry) => {
+    const recipe = state.recipeDefinitions.find((recipeItem) => recipeItem.id === entry.id);
     const ingredients = recipe ? recipe.ingredients : [];
-    const appliedQuantity = Number(sale.appliedQuantity) || 0;
+    const quantity = useDraft ? entry.draftQuantity : entry.appliedQuantity;
 
     ingredients.forEach((ingredient) => {
       if (!findItem(ingredient.itemId)) return;
       const current = totals.get(ingredient.itemId) || 0;
-      totals.set(ingredient.itemId, current + ingredient.amount * appliedQuantity);
+      totals.set(ingredient.itemId, current + ingredient.amount * quantity);
     });
   });
 
   return [...totals.entries()].map(([itemId, amount]) => ({ itemId, amount }));
 }
 
-function getPendingSaleQuantity(saleId, fallback = 0) {
-  const input = document.querySelector(`[data-sales-quantity="${saleId}"]`);
-  return input ? (Number(input.value) || 0) : fallback;
+function renderPosCategoryFilters(snapshot = getPosDraftSnapshot()) {
+  if (!posCategoryFilters) return;
+
+  const categories = [...new Set(snapshot.map((entry) => entry.categoryLabel))];
+  if (currentPosCategory !== "Tất cả" && !categories.includes(currentPosCategory)) {
+    currentPosCategory = "Tất cả";
+  }
+
+  posCategoryFilters.innerHTML = ["Tất cả", ...categories]
+    .map((category) => `
+      <button
+        type="button"
+        class="pos-category-pill ${category === currentPosCategory ? "is-active" : ""}"
+        data-pos-category="${escapeAttr(category)}"
+      >
+        ${escapeHtml(category)}
+      </button>
+    `)
+    .join("");
+
+  [...posCategoryFilters.querySelectorAll("[data-pos-category]")].forEach((button) => {
+    button.addEventListener("click", () => {
+      currentPosCategory = button.dataset.posCategory || "Tất cả";
+      renderPosProductGrid(getPosDraftSnapshot());
+    });
+  });
 }
 
-function renderPosProductGrid() {
+function renderPosTicketSummary(snapshot = getPosDraftSnapshot()) {
+  if (!posTicketSummary) return;
+
+  const totalDraft = snapshot.reduce((sum, entry) => sum + entry.draftQuantity, 0);
+  const totalApplied = snapshot.reduce((sum, entry) => sum + entry.appliedQuantity, 0);
+  const totalRevenue = snapshot.reduce((sum, entry) => sum + entry.draftRevenue, 0);
+  const dirtyCount = snapshot.filter((entry) => entry.isDirty).length;
+
+  posTicketSummary.innerHTML = `
+    <div class="pos-checkout-row">
+      <span>Tạm tính</span>
+      <span>${formatCurrency(totalRevenue)}</span>
+    </div>
+    <div class="pos-checkout-row">
+      <span>Đã sync vào kho</span>
+      <span>${formatNumber(totalApplied)} món</span>
+    </div>
+    <div class="pos-checkout-total">
+      <strong>${dirtyCount > 0 ? "Chờ lưu" : "Đã sẵn sàng"}</strong>
+      <span>${formatNumber(totalDraft)} món</span>
+    </div>
+  `;
+
+  if (posTicketBadge) {
+    posTicketBadge.className = `badge ${dirtyCount > 0 ? "warning" : "good"}`;
+    posTicketBadge.textContent = dirtyCount > 0 ? `Chờ lưu ${formatNumber(dirtyCount)}` : "Đã sync";
+  }
+}
+
+function renderConsumptionTable(options = {}) {
+  if (!consumptionTable) return;
+
+  const summary = getConsumptionSummary(options);
+  consumptionTable.innerHTML = summary.length > 0
+    ? summary
+      .map(({ itemId, amount }) => {
+        const item = findItem(itemId);
+        if (!item) return "";
+        const remain = item.onHand - amount;
+        return `
+          <tr>
+            <td>${escapeHtml(item.name)}</td>
+            <td>${formatDisplayQuantity(amount, item.stockUnit)}</td>
+            <td>${formatDisplayQuantity(item.onHand, item.stockUnit)}</td>
+            <td>${formatDisplayQuantity(remain, item.stockUnit)}</td>
+          </tr>
+        `;
+      })
+      .join("")
+    : `
+      <tr>
+        <td colspan="4">Chưa có nguyên liệu nào bị trừ theo bản draft hiện tại.</td>
+      </tr>
+    `;
+}
+
+function syncPosStatusWithDraft(snapshot = getPosDraftSnapshot()) {
+  const totalDraft = snapshot.reduce((sum, entry) => sum + entry.draftQuantity, 0);
+  const totalApplied = snapshot.reduce((sum, entry) => sum + entry.appliedQuantity, 0);
+  const dirtyCount = snapshot.filter((entry) => entry.isDirty).length;
+
+  if (dirtyCount > 0) {
+    setSalesSyncStatus(
+      `Có ${formatNumber(dirtyCount)} món đang chờ lưu. Bản draft hiện tại ghi nhận ${formatNumber(totalDraft)} món bán ra, trong khi kho mới sync theo ${formatNumber(totalApplied)} món.`,
+      "warning"
+    );
+    return;
+  }
+
+  setSalesSyncStatus(
+    `Hôm nay đang ghi ${formatNumber(totalDraft)} món bán ra. Kho hiện đã được khấu trừ theo ${formatNumber(totalApplied)} món đã lưu.`,
+    "good"
+  );
+}
+
+function focusPosSaleInput(saleId) {
+  const targetInput = document.querySelector(`[data-sales-quantity="${saleId}"]`);
+  if (!targetInput) return;
+  targetInput.scrollIntoView({ behavior: "smooth", block: "center" });
+  targetInput.focus();
+}
+
+function adjustPosSaleDraft(saleId, step) {
+  const input = document.querySelector(`[data-sales-quantity="${saleId}"]`);
+  if (!input) return;
+  input.value = Math.max(0, normalizeSaleQuantity(input.value) + step);
+  updatePosDraftUi("Đã cập nhật nhanh số lượng món trên POS. Bạn hãy bấm lưu để đồng bộ khấu trừ kho.");
+}
+
+function updatePosDraftUi(statusMessage = "") {
+  const snapshot = getPosDraftSnapshot();
+  renderPosProductGrid(snapshot);
+  renderPosTicketSummary(snapshot);
+  renderConsumptionTable({ useDraft: true, snapshot });
+  if (statusMessage) {
+    setSalesSyncStatus(statusMessage, "warning");
+  } else {
+    syncPosStatusWithDraft(snapshot);
+  }
+}
+
+function renderPosProductGrid(snapshot = getPosDraftSnapshot()) {
   if (!posProductGrid) return;
 
-  posProductGrid.innerHTML = state.dailySales
-    .map((sale) => {
-      const pendingQuantity = getPendingSaleQuantity(sale.id, Number(sale.quantity) || 0);
-      const appliedQuantity = Number(sale.appliedQuantity) || 0;
-      return `
-        <article class="pos-product-card">
-          <div class="pos-product-top">
-            <div>
-              <p class="panel-label">POS item</p>
-              <h5>${escapeHtml(sale.name)}</h5>
-            </div>
-            <span class="badge ${pendingQuantity === appliedQuantity ? "good" : "warning"}">${pendingQuantity === appliedQuantity ? "Đã sync" : "Chờ lưu"}</span>
+  renderPosCategoryFilters(snapshot);
+  const visibleSales = currentPosCategory === "Tất cả"
+    ? snapshot
+    : snapshot.filter((entry) => entry.categoryLabel === currentPosCategory);
+
+  if (posProductCount) {
+    posProductCount.textContent = `${formatNumber(visibleSales.length)}/${formatNumber(snapshot.length)} món`;
+  }
+
+  if (visibleSales.length === 0) {
+    posProductGrid.innerHTML = `
+      <article class="pos-product-card pos-theme-khac">
+        <div class="pos-product-media">
+          <div class="pos-product-media-top">
+            <span class="pos-product-chip">Bộ lọc</span>
+            <span class="pos-product-media-icon material-symbols-outlined">filter_alt</span>
           </div>
-          <p class="pos-product-note">${escapeHtml(sale.note || "Chưa có ghi chú cho món này.")}</p>
+          <div class="pos-product-media-copy">
+            <p>POS catalog</p>
+            <strong>Chưa có món ở nhóm này</strong>
+          </div>
+        </div>
+        <p class="pos-product-note">Hãy đổi sang nhóm khác hoặc quay lại “Tất cả” để xem toàn bộ món đang bán.</p>
+      </article>
+    `;
+    return;
+  }
+
+  posProductGrid.innerHTML = visibleSales
+    .map((entry) => `
+      <article class="pos-product-card ${entry.themeClass}">
+        <div class="pos-product-media">
+          <div class="pos-product-media-top">
+            <span class="pos-product-chip">${escapeHtml(entry.categoryLabel)}</span>
+            <span class="badge ${entry.isDirty ? "warning" : "good"}">${entry.isDirty ? "Draft" : "Sync"}</span>
+          </div>
+          <div class="pos-product-media-copy">
+            <span class="pos-product-media-icon material-symbols-outlined">${escapeHtml(entry.icon)}</span>
+            <strong>${escapeHtml(entry.name)}</strong>
+          </div>
+        </div>
+        <div class="pos-product-copy">
+          <h5>${escapeHtml(entry.name)}</h5>
           <div class="pos-product-footer">
-            <div>
-              <div class="pos-product-price">${formatCurrency(Number(sale.price) || 0)}</div>
-              <p class="stat-meta">Đã trừ kho theo ${formatNumber(appliedQuantity)} món</p>
-            </div>
-            <span class="pos-product-qty">${formatNumber(pendingQuantity)}</span>
+            <div class="pos-product-price">${formatCurrency(entry.price)}</div>
+            <span class="pos-product-meta-label">${escapeHtml(entry.categoryLabel)}</span>
           </div>
-          <div class="pos-product-quick-actions">
-            <button type="button" class="pos-quick-btn" data-pos-adjust="${escapeAttr(sale.id)}" data-pos-step="-1">−</button>
-            <button type="button" class="secondary-btn" data-pos-focus="${escapeAttr(sale.id)}">Mở chi tiết</button>
-            <button type="button" class="pos-quick-btn" data-pos-adjust="${escapeAttr(sale.id)}" data-pos-step="1">+</button>
-          </div>
-        </article>
-      `;
-    })
+        </div>
+        <div class="pos-product-quick-actions">
+          <button type="button" class="pos-quick-btn" data-pos-adjust="${escapeAttr(entry.id)}" data-pos-step="-1">−</button>
+          <span class="pos-product-qty">${formatNumber(entry.draftQuantity)}</span>
+          <button type="button" class="pos-quick-btn" data-pos-adjust="${escapeAttr(entry.id)}" data-pos-step="1">+</button>
+        </div>
+      </article>
+    `)
     .join("");
 
   [...posProductGrid.querySelectorAll("[data-pos-adjust]")].forEach((button) => {
     button.addEventListener("click", () => {
-      const saleId = button.dataset.posAdjust;
-      const step = Number(button.dataset.posStep) || 0;
-      const input = document.querySelector(`[data-sales-quantity="${saleId}"]`);
-      if (!input) return;
-      const nextValue = Math.max(0, (Number(input.value) || 0) + step);
-      input.value = nextValue;
-      setSalesSyncStatus("Đã cập nhật nhanh số lượng trên thẻ POS. Bạn hãy bấm lưu để trừ kho chính thức.", "warning");
-      renderPosProductGrid();
-    });
-  });
-
-  [...posProductGrid.querySelectorAll("[data-pos-focus]")].forEach((button) => {
-    button.addEventListener("click", () => {
-      const saleId = button.dataset.posFocus;
-      const targetInput = document.querySelector(`[data-sales-quantity="${saleId}"]`);
-      if (targetInput) {
-        targetInput.scrollIntoView({ behavior: "smooth", block: "center" });
-        targetInput.focus();
-      }
+      adjustPosSaleDraft(button.dataset.posAdjust, Number(button.dataset.posStep) || 0);
     });
   });
 }
 
 function renderSalesStats() {
-  salesTable.innerHTML = state.dailySales
-    .map((sale) => `
-      <tr>
-        <td>${escapeHtml(sale.name)}</td>
-        <td><input class="count-input sales-inline-input" type="number" min="0" step="1" value="${escapeAttr(sale.quantity)}" data-sales-quantity="${escapeAttr(sale.id)}"></td>
-        <td>${formatNumber(sale.appliedQuantity || 0)} món</td>
-        <td>${formatCurrency(sale.price)}</td>
-        <td>${formatCurrency(sale.quantity * sale.price)}</td>
-        <td><input class="count-input sales-note-input" type="text" value="${escapeAttr(sale.note || "")}" data-sales-note="${escapeAttr(sale.id)}"></td>
-      </tr>
-    `)
-    .join("");
+  const snapshot = getPosDraftSnapshot();
 
-  const consumptionSummary = getConsumptionSummary();
+  salesTable.innerHTML = snapshot.length > 0
+    ? snapshot
+      .map((entry) => `
+        <article class="pos-ticket-item ${entry.isDirty ? "is-dirty" : ""}">
+          <div class="pos-ticket-item-head">
+            <div class="pos-ticket-item-main">
+              <div class="pos-ticket-thumb ${entry.themeClass}">
+                <span class="material-symbols-outlined">${escapeHtml(entry.icon)}</span>
+              </div>
+              <div>
+                <h5>${escapeHtml(entry.name)}</h5>
+                <p>${escapeHtml(entry.categoryLabel)} · ${formatCurrency(entry.price)} / món</p>
+              </div>
+            </div>
+            <div class="pos-ticket-price-block">
+              <strong>${formatCurrency(entry.draftRevenue)}</strong>
+              <span>Đã sync ${formatNumber(entry.appliedQuantity)} món</span>
+            </div>
+          </div>
+          <div class="pos-ticket-controls">
+            <div class="pos-ticket-stepper">
+              <button type="button" class="pos-ticket-step" data-pos-ticket-adjust="${escapeAttr(entry.id)}" data-pos-ticket-step="-1">
+                <span class="material-symbols-outlined">remove</span>
+              </button>
+              <input class="count-input sales-inline-input pos-ticket-input" type="number" min="0" step="1" value="${escapeAttr(entry.draftQuantity)}" data-sales-quantity="${escapeAttr(entry.id)}">
+              <button type="button" class="pos-ticket-step is-plus" data-pos-ticket-adjust="${escapeAttr(entry.id)}" data-pos-ticket-step="1">
+                <span class="material-symbols-outlined">add</span>
+              </button>
+            </div>
+            <span class="badge ${entry.isDirty ? "warning" : "good"}">${entry.isDirty ? "Chờ lưu" : "Khớp kho"}</span>
+          </div>
+          <label class="pos-ticket-note-field">
+            <span>Ghi chú món</span>
+            <input class="count-input sales-note-input" type="text" value="${escapeAttr(entry.draftNote)}" data-sales-note="${escapeAttr(entry.id)}">
+          </label>
+        </article>
+      `)
+      .join("")
+    : `
+      <article class="pos-ticket-item">
+        <div class="pos-ticket-item-head">
+          <div>
+            <h5>Chưa có món bán trong ngày</h5>
+            <p>Hãy tạo công thức và thêm dữ liệu daily sales để màn POS bắt đầu hoạt động.</p>
+          </div>
+        </div>
+      </article>
+    `;
 
-  consumptionTable.innerHTML = consumptionSummary
-    .map(({ itemId, amount }) => {
-      const item = findItem(itemId);
-      if (!item) return "";
-      const remain = item.onHand - amount;
-      return `
-        <tr>
-          <td>${escapeHtml(item.name)}</td>
-          <td>${formatDisplayQuantity(amount, item.stockUnit)}</td>
-          <td>${formatDisplayQuantity(item.onHand, item.stockUnit)}</td>
-          <td>${formatDisplayQuantity(remain, item.stockUnit)}</td>
-        </tr>
-      `;
-    })
-    .join("");
-
-  const totalSales = state.dailySales.reduce((sum, sale) => sum + (Number(sale.quantity) || 0), 0);
-  const totalAppliedSales = state.dailySales.reduce((sum, sale) => sum + (Number(sale.appliedQuantity) || 0), 0);
-  setSalesSyncStatus(
-    `Hôm nay đang ghi ${formatNumber(totalSales)} món bán ra. Kho hiện đã được khấu trừ theo ${formatNumber(totalAppliedSales)} món đã lưu.`,
-    totalSales === totalAppliedSales ? "good" : ""
-  );
+  renderPosTicketSummary(snapshot);
+  renderConsumptionTable({ useDraft: true, snapshot });
+  syncPosStatusWithDraft(snapshot);
 
   [...document.querySelectorAll("[data-sales-quantity], [data-sales-note]")].forEach((input) => {
     input.addEventListener("input", () => {
-      renderPosProductGrid();
+      if (input.dataset.salesQuantity) {
+        input.value = normalizeSaleQuantity(input.value);
+      }
+      updatePosDraftUi("Đã cập nhật ticket draft. Hãy bấm lưu để đồng bộ khấu trừ kho.");
+    });
+  });
+
+  [...salesTable.querySelectorAll("[data-pos-ticket-adjust]")].forEach((button) => {
+    button.addEventListener("click", () => {
+      adjustPosSaleDraft(button.dataset.posTicketAdjust, Number(button.dataset.posTicketStep) || 0);
     });
   });
 }
@@ -2139,7 +2363,7 @@ function saveDailySalesUpdates() {
   const blockingItems = [];
 
   quantityInputs.forEach((input) => {
-    nextValues.set(input.dataset.salesQuantity, Number(input.value) || 0);
+    nextValues.set(input.dataset.salesQuantity, normalizeSaleQuantity(input.value));
   });
 
   noteInputs.forEach((input) => {

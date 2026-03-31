@@ -351,66 +351,66 @@
       </section>
 
       <section class="screen" id="screen-pos" data-screen-panel="pos">
-        <div class="section-heading">
-          <div>
+        <div class="pos-screen-hero">
+          <div class="pos-screen-copy">
             <p class="eyebrow">Point of sale</p>
-            <h3>POS điều hành món bán và tự trừ kho</h3>
+            <h3>Liquid POS</h3>
+            <p class="pos-screen-subcopy">Quản lý món bán, kiểm tra ticket và đồng bộ khấu trừ kho ngay trong một màn hình.</p>
           </div>
-          <button type="button" id="hide-dashboard-sales" class="secondary-btn">Về dashboard</button>
+          <button type="button" id="hide-dashboard-sales" class="secondary-btn pos-back-btn">
+            <span class="material-symbols-outlined">dashboard</span>
+            <span>Về dashboard</span>
+          </button>
         </div>
 
-        <div class="panel-grid pos-shell-grid">
+        <div class="pos-main-grid">
           <article class="panel pos-products-panel">
-            <div class="panel-header">
+            <div class="panel-header pos-products-header">
               <div>
                 <p class="panel-label">POS catalog</p>
                 <h4>Món bán trong ngày</h4>
               </div>
             </div>
+            <div class="pos-catalog-toolbar">
+              <div id="pos-category-filters" class="pos-category-filters" aria-label="Lọc món POS"></div>
+              <div id="pos-product-count" class="pos-product-count">0 món</div>
+            </div>
             <div id="pos-product-grid" class="pos-product-grid"></div>
           </article>
 
-          <article class="panel pos-order-panel">
-            <div class="panel-header">
+          <article class="panel pos-ticket-panel">
+            <div class="panel-header pos-ticket-header">
               <div>
-                <p class="panel-label">Ticket sync</p>
-                <h4>Cập nhật số bán và đồng bộ khấu trừ kho</h4>
+                <p class="panel-label">Order ticket</p>
+                <h4>Giỏ món đã bán hôm nay</h4>
               </div>
+              <span class="pos-table-badge">Hôm nay</span>
             </div>
 
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Món bán</th>
-                    <th>Số lượng bán</th>
-                    <th>Đã trừ kho</th>
-                    <th>Đơn giá</th>
-                    <th>Doanh thu</th>
-                    <th>Ghi chú</th>
-                  </tr>
-                </thead>
-                <tbody id="sales-table"></tbody>
-              </table>
-            </div>
-            <div class="sales-actions">
-              <div class="sales-status" id="sales-sync-status">
+            <div id="sales-table" class="pos-ticket-list"></div>
+            <div id="pos-ticket-summary" class="pos-ticket-summary pos-ticket-checkout"></div>
+            <div class="sales-actions pos-ticket-actions">
+              <button type="button" id="save-sales-updates" class="primary-btn pos-save-btn">
+                <span class="material-symbols-outlined">sync</span>
+                <span>Lưu bán trong ngày và tự trừ kho</span>
+              </button>
+              <div class="sales-status pos-sync-status" id="sales-sync-status">
                 Khi bạn bấm lưu, hệ thống sẽ tự khấu trừ nguyên liệu tồn kho theo công thức món đã khai báo.
               </div>
-              <button type="button" id="save-sales-updates" class="primary-btn">Lưu bán trong ngày và tự trừ kho</button>
             </div>
           </article>
         </div>
 
-        <div class="panel-grid">
-          <article class="panel">
-            <div class="panel-header">
+        <div class="pos-secondary-stack">
+          <details class="pos-secondary-card">
+            <summary>
               <div>
-                <p class="panel-label">Consumption ledger</p>
-                <h4>Tổng nguyên liệu đã dùng từ món bán ra</h4>
+                <p class="panel-label">Consumption</p>
+                <h4>Xem trước nguyên liệu sẽ bị trừ</h4>
               </div>
-            </div>
-            <div class="table-wrap">
+              <span class="material-symbols-outlined">expand_more</span>
+            </summary>
+            <div class="table-wrap pos-consumption-wrap">
               <table>
                 <thead>
                   <tr>
@@ -423,30 +423,7 @@
                 <tbody id="consumption-table"></tbody>
               </table>
             </div>
-          </article>
-
-          <article class="panel">
-            <div class="panel-header">
-              <div>
-                <p class="panel-label">Playbook</p>
-                <h4>Cách đọc nhanh màn POS này</h4>
-              </div>
-            </div>
-            <div class="stack">
-              <article class="mini-card">
-                <h5>1. Chạm vào món bán</h5>
-                <p>Chọn đúng món đang bán mạnh để tăng nhanh số lượng ngay trong ngày.</p>
-              </article>
-              <article class="mini-card">
-                <h5>2. Kiểm tra ghi chú và giá</h5>
-                <p>Nhân viên có thể ghi chú ngay trên order sync để chủ quán hiểu tình hình bán.</p>
-              </article>
-              <article class="mini-card">
-                <h5>3. Lưu để trừ kho</h5>
-                <p>Sau khi lưu, hệ thống sẽ tự khấu trừ kho và ghi nhận vào lịch sử vận hành.</p>
-              </article>
-            </div>
-          </article>
+          </details>
         </div>
       </section>
       <section class="screen" id="screen-catalog" data-screen-panel="catalog">
