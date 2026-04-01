@@ -96,10 +96,6 @@
         <div class="brand-copy-block">
           <p class="eyebrow">Liquid Intelligence</p>
           <h1>Liquid POS</h1>
-          <div class="brand-meta">
-            <span>Premium Management</span>
-            <span>Terminal 01</span>
-          </div>
         </div>
       </div>
 
@@ -135,7 +131,7 @@
       <header class="app-toolbar panel">
         <div class="toolbar-copy">
           <p class="panel-label">Liquid Intelligence</p>
-          <h2>Workspace</h2>
+          <h2>Operational workspace</h2>
         </div>
         <div class="toolbar-actions">
           <label class="toolbar-search" aria-label="Tìm nhanh">
@@ -296,7 +292,15 @@
           </div>
         </section>
 
-        <div class="dashboard-utility-grid">
+        <details class="dashboard-secondary-drawer">
+          <summary>
+            <div>
+              <p class="panel-label">Back office</p>
+              <h4>Đồng bộ dữ liệu, snapshot và quản lý user</h4>
+            </div>
+            <span class="material-symbols-outlined">expand_more</span>
+          </summary>
+          <div class="dashboard-utility-grid">
           <section class="data-controls panel">
             <div class="panel-header">
               <div>
@@ -344,7 +348,8 @@
               </div>
             </div>
           </section>
-        </div>
+          </div>
+        </details>
       </section>
 
       <section class="screen" id="screen-pos" data-screen-panel="pos">
@@ -432,6 +437,16 @@
           </div>
         </div>
 
+        <article class="panel inventory-grid-panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-label">Inventory grid</p>
+              <h4>Toàn bộ mặt hàng đang theo dõi</h4>
+            </div>
+          </div>
+          <div id="catalog-grid" class="catalog-grid"></div>
+        </article>
+
         <div class="inventory-shell">
           <article class="panel inventory-editor-panel">
             <div class="panel-header">
@@ -483,15 +498,6 @@
           </div>
         </div>
 
-        <article class="panel inventory-grid-panel">
-          <div class="panel-header">
-            <div>
-              <p class="panel-label">Inventory grid</p>
-              <h4>Toàn bộ mặt hàng đang theo dõi</h4>
-            </div>
-          </div>
-          <div id="catalog-grid" class="catalog-grid"></div>
-        </article>
       </section>
 
       <section class="screen" id="screen-purchase" data-screen-panel="purchase">
@@ -501,39 +507,6 @@
             <h3>Ghi nhận nhập hàng theo phiếu</h3>
             <p class="screen-copy">Nhập nhanh, quy đổi thông minh và theo dõi lịch sử nhận hàng trong cùng một màn.</p>
           </div>
-        </div>
-
-        <div class="goods-shell">
-          <article class="panel goods-form-panel">
-            <div class="panel-header">
-              <div>
-                <p class="panel-label">Receipt form</p>
-                <h4>Tạo phiếu nhập hàng</h4>
-              </div>
-            </div>
-
-            <form id="purchase-form" class="form-grid goods-form">
-              <label><span>Mặt hàng</span><select id="purchase-item" name="purchaseItem"></select></label>
-              <label><span>Đơn vị nhập</span><select id="purchase-unit" name="purchaseUnit"></select></label>
-              <label><span>Số lượng</span><input id="purchase-quantity" name="purchaseQuantity" type="number" min="0.1" step="0.1" value="1"></label>
-              <label><span>Khối lượng thực nhập</span><input id="purchase-custom-weight" name="purchaseCustomWeight" type="number" min="0" step="0.1" placeholder="Ví dụ: 420"></label>
-              <label><span>Đơn giá</span><input id="purchase-price" name="purchasePrice" type="number" min="0" step="1000" value="180000"></label>
-              <label><span>Nhà cung cấp</span><input id="purchase-supplier" name="purchaseSupplier" type="text" value="Nhà cung cấp quen"></label>
-              <div class="form-actions span-2">
-                <button type="submit" class="primary-btn">Thêm vào lịch sử nhập</button>
-              </div>
-            </form>
-          </article>
-
-          <article class="panel goods-preview-panel">
-            <div class="panel-header">
-              <div>
-                <p class="panel-label">Conversion preview</p>
-                <h4>Xem trước cách quy đổi nhập kho</h4>
-              </div>
-            </div>
-            <div id="conversion-preview" class="conversion-card"></div>
-          </article>
         </div>
 
         <article class="panel goods-log-panel">
@@ -569,6 +542,40 @@
             </table>
           </div>
         </article>
+
+        <div class="goods-shell">
+          <article class="panel goods-form-panel">
+            <div class="panel-header">
+              <div>
+                <p class="panel-label">Receipt form</p>
+                <h4>Tạo phiếu nhập hàng</h4>
+              </div>
+            </div>
+
+            <form id="purchase-form" class="form-grid goods-form">
+              <label><span>Mặt hàng</span><select id="purchase-item" name="purchaseItem"></select></label>
+              <label><span>Đơn vị nhập</span><select id="purchase-unit" name="purchaseUnit"></select></label>
+              <label><span>Số lượng</span><input id="purchase-quantity" name="purchaseQuantity" type="number" min="0.1" step="0.1" value="1"></label>
+              <label><span>Khối lượng thực nhập</span><input id="purchase-custom-weight" name="purchaseCustomWeight" type="number" min="0" step="0.1" placeholder="Ví dụ: 420"></label>
+              <label><span>Đơn giá</span><input id="purchase-price" name="purchasePrice" type="number" min="0" step="1000" value="180000"></label>
+              <label><span>Nhà cung cấp</span><input id="purchase-supplier" name="purchaseSupplier" type="text" value="Nhà cung cấp quen"></label>
+              <div class="form-actions span-2">
+                <button type="submit" class="primary-btn">Thêm vào lịch sử nhập</button>
+              </div>
+            </form>
+          </article>
+
+          <article class="panel goods-preview-panel">
+            <div class="panel-header">
+              <div>
+                <p class="panel-label">Conversion preview</p>
+                <h4>Xem trước cách quy đổi nhập kho</h4>
+              </div>
+            </div>
+            <div id="conversion-preview" class="conversion-card"></div>
+          </article>
+        </div>
+
       </section>
 
       <section class="screen" id="screen-count" data-screen-panel="count">

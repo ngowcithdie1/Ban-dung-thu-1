@@ -247,13 +247,7 @@ thead th {
 }
 
 .auth-role-pill {
-  display: inline-flex;
-  gap: 10px;
-  padding: 6px;
-  border-radius: 999px;
-  background: rgba(12, 19, 38, 0.74);
-  border: 1px solid var(--line);
-  width: fit-content;
+  display: none;
 }
 
 .role-pill {
@@ -373,7 +367,7 @@ thead th {
   min-height: 100vh;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: 252px minmax(0, 1fr);
+  grid-template-columns: 244px minmax(0, 1fr);
   gap: 28px;
   padding: 20px 16px 28px;
   align-items: start;
@@ -411,8 +405,8 @@ thead th {
 
 .brand-block {
   display: grid;
-  gap: 18px;
-  padding: 20px;
+  gap: 14px;
+  padding: 18px;
   background: linear-gradient(180deg, rgba(133, 173, 255, 0.12) 0%, rgba(17, 25, 46, 0.92) 66%);
 }
 
@@ -536,6 +530,7 @@ thead th {
 .toolbar-copy {
   display: grid;
   gap: 4px;
+  min-width: 140px;
 }
 
 .toolbar-copy h2 {
@@ -558,13 +553,15 @@ thead th {
 
 .toolbar-actions {
   justify-content: flex-end;
+  flex: 1;
 }
 
 .toolbar-search {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  min-width: min(100%, 420px);
+  min-width: 0;
+  flex: 1 1 560px;
   padding: 0 18px;
 }
 
@@ -1952,6 +1949,7 @@ tbody tr:hover td {
 .goods-log-panel,
 .recipe-table-panel {
   margin-top: 0;
+  margin-bottom: 22px;
 }
 
 .stock-ledger-grid {
@@ -1978,6 +1976,39 @@ tbody tr:hover td {
 .stock-ledger-main,
 .stock-ledger-side {
   min-height: 100%;
+}
+
+.dashboard-secondary-drawer {
+  margin-top: 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: rgba(12, 19, 38, 0.54);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  overflow: hidden;
+}
+
+.dashboard-secondary-drawer summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+}
+
+.dashboard-secondary-drawer summary::-webkit-details-marker {
+  display: none;
+}
+
+.dashboard-secondary-drawer[open] summary {
+  border-bottom: 1px solid rgba(133, 173, 255, 0.08);
+}
+
+.dashboard-secondary-drawer > .dashboard-utility-grid {
+  padding: 0 24px 24px;
 }
 
 @media (max-width: 1380px) {
@@ -2084,6 +2115,10 @@ tbody tr:hover td {
   .sales-status,
   .user-chip {
     width: 100%;
+  }
+
+  .dashboard-secondary-drawer > .dashboard-utility-grid {
+    padding: 0 18px 18px;
   }
 
   .form-grid,
